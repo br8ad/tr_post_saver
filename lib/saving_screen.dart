@@ -1,3 +1,4 @@
+import 'dart:convert';  // JSON 데이터를 파싱하기 위해 필요
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -18,7 +19,7 @@ import 'models.dart';
 // -> 음.. .근데 cpp파일 건드렸다가 낭패볼거같아서.. 그냥 그거까진 말래요 ㅡㅜㅡ
 class SavingScreen extends StatefulWidget {
   final int startPage;
-  final int? endPage;
+  int? endPage;
   final String userCode;
 
   // final bool bViewCnt;
@@ -43,59 +44,183 @@ class SavingScreen extends StatefulWidget {
 
 class _SavingScreenState extends State<SavingScreen>
 {
-  int nowPostPage = 1;  // init에서 설정한 startPage로 초기화
-  // 10숫자(묶음x)마다 txt 리필 -> 입력받음 (기본값 = 1) = 글 240개
-  // (ex, 1페이지부터 (1~10) / 101페이지부터 (101~110) / 5페이지부터 (5~10)) = 난 860개 txt파일
-  int nowPostNumInPage = 0;
-  int get nowPostNum => nowPostPage * PostListModel.kMaxListSize + nowPostNumInPage;
-
-  int nowCommentPage = 1;
-  int nowCommentNum = 0;
-  int nowCommentNumInPage = 0;
-
-  int nowReplyPage = 1;
-  int nowReplyNum = 0;
-  int nowReplyNumInPage = 0;
-
-  int commentReplyCnt = 0;
-  // 표시+이미지에 사용되는 댓글/답글 번호는 댓글/답글의 누적
-  // (getter로 못함. reply는 나오기도 하기때문에! 누적을 실시간으로 같이 시켜야함)
-
-  int recentMyLevel = 0; // 내 레벨은 변경시에만 출력
-
-  ////////////////////////
   final fileHandler = FileHandler();
 
-  int currentPost = 0;
-  int totalPosts = 0;
   bool isSaving = false;
+  String? errorStr;
 
   @override
   void initState() {
     super.initState();
-    nowPostPage = widget.startPage;
-    totalPosts = widget.endPage ?? 8000; // 설정된 endPage가 없으면 기본값 8000
+    postPageIdx = widget.startPage;
     startSaving();
   }
 
-  Future<void> startSaving() async {
-    setState(() {
-      isSaving = true;
-    });
+  int postPageIdx = 1;  // init에서 설정한 startPage로 초기화
+  // 10숫자(묶음x)마다 txt 리필 -> 입력받음 (기본값 = 1) = 글 240개
+  // (ex, 1페이지부터 (1~10) / 101페이지부터 (101~110) / 5페이지부터 (5~10)) = 난 860개 txt파일
+  int postIdxInPage = 0;
+  int get postCnt => (postPageIdx-1) * PostListModel.kMaxListSize + postIdxInPage;
 
-    for (int i = widget.startPage; i <= totalPosts; i++) {
-      await saveImage(i);
-      setState(() {
-        currentPost = i;
-      });
+  int cmtPageIdx = 1;
+  int cmtIdxInPage = 0;
+
+  int replyPageIdx = 1;   // 역순 아님
+  int replyIdxInPage = 0;    // 역순 (4~0)
+
+  int cmtReplyCnt = 0;
+  // -> 댓글/답글 번호는 댓글/답글의 ★누적 (txt 출력 + 이미지 번호에 사용됨)
+  // -> 답글 목록은 계속 바뀌니까 getter로 못함! 누적을 시켜야함!
+
+  int recentMyLevel = 0; // 내 레벨은 변경시에만 출력
+
+  PostListModel? postList;
+  PostModel? post;
+  CommentListModel? cmtList;
+  CommentListModel? replyList;
+
+  Future<void> startSaving() async
+  {
+    setState(() => isSaving = true);
+
+    while (true)
+    {
+      // 1. 불러옴
+      try {
+        postList = await fetchModel<PostListModel>(
+          url: PostListModel.getJsonUrl(widget.userCode, postPageIdx),
+          fromJson: (json) => PostListModel.fromJson(json),
+        );
+      }
+      // 1-1. 로딩을 못 했거나
+      catch (e) {
+        setState(() => errorStr = e.toString());
+        return;
+      }
+      // 1-2. total이 0일 경우 에러 처리
+      if (postList?.total == 0)
+      {
+        setState(() => errorStr = '잘못된 페이지 참조');
+        return;
+      }
+      // 2. (최초 1회) endPage 미설정 시 초기화
+      if (widget.endPage == null)
+      {
+        setState(() => widget.endPage = (postList!.total / PostListModel.kMaxListSize).ceil());
+      }
+
+      // 3. 본격 txt에 게시글 저장 작업
+
+      // n페 출력
+
+      for (postIdxInPage = 0;
+           postIdxInPage < postList!.list.length;
+           postIdxInPage++)
+      {
+        // - 텍스트 저장
+
+        // ※ 번호. [기타] 제목
+
+        // 레벨 / 201뷰 / 창작 / 날짜-시간 / 댓5 / 5♥ (12b-3p) / 설문 / 미디어 (n개. 1개는 표기X)
+
+        // - 이미지&영상 저장
+
+        // -> article_id 앞 2글자가 TR일 때만 previewUrl 사용하고
+        //    외엔 전부 postModel 참조
+
+        // (영상 youtube.com/embed/1234) * n
+        // -> 사진 옵션 관계없이 movie_yn이 Y라면 postModel 참조 ?? -> ?? 미디어로 통합하기로 했지? 다시 체크
+
+        // 본문
+
+        // string을 받는게 아니라. 제공해주면 txt에 쓰는애면 될듯?
+        await exportToTxt(i);
+
+        // 댓글을 체크했고, 댓글이 있을 경우 처리
+        if (widget.bComment &&
+            postList!.list[postIdxInPage].commentScore >= 1) exportComment();
+      }
+
+      // 99. 한 페이지 완료 시 작업
+      setState(() => postPageIdx++);
+      postIdxInPage = 0;
+
+      if (postPageIdx-1 == widget.endPage) break;   // or postList.nextYn == 'N'으로 대체 가능 (필드 추가 必)
     }
 
-    setState(() {
-      isSaving = false;
-    });
+    setState(() => isSaving = false);
   }
 
-  Future<void> saveImage(int index) async {
+  void exportComment()
+  {
+    cmtPageIdx = 1;
+    cmtReplyCnt = 0;
+
+    while (true)
+    {
+      for (cmtIdxInPage = 0;
+           cmtIdxInPage < cmtList!.list.length;
+           cmtIdxInPage++, cmtReplyCnt++)
+      {
+
+        // 답글이 있을 경우 처리
+        if (cmtList!.list[cmtIdxInPage].commentScore >= 1) exportReply();
+      }
+
+      if (cmtList!.nextYn == 'N') return;
+
+      cmtPageIdx++;
+    }
+  }
+
+  void exportReply()
+  {
+    replyPageIdx = 1;
+
+    while (true)
+    {
+      try {
+        replyList = await fetchModel<CommentListModel>(
+          url: CommentListModel.getReplyJsonUrl(cmtList!.list[cmtIdxInPage].commentId, replyPageIdx),
+          fromJson: (json) => CommentListModel.fromJson(json),
+        );
+      }
+      catch (e) {
+        setState(() => errorStr = e.toString());
+        return;
+      }
+
+      for (replyIdxInPage = replyList!.list.length -1; // ★역순
+           replyIdxInPage >= 0;
+           replyIdxInPage--, cmtReplyCnt++)
+      {
+        // -> 번호) 답글
+      }
+
+      if (replyList!.nextYn == 'N') return;
+
+      replyPageIdx++;
+    }
+  }
+
+  Future<T> fetchModel<T>({
+    required String url,
+    required T Function(Map<String, dynamic>) fromJson,
+  }) async
+  {
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      // 서버가 OK 응답을 반환하면 JSON을 파싱합니다.
+      return fromJson(json.decode(response.body));
+    } else {
+      // 서버가 OK 응답을 반환하지 않으면 예외를 던집니다.
+      throw Exception('페이지 로딩 실패');
+    }
+  }
+
+  Future<void> exportToTxt(int index) async
+  {
     String url = 'https://testPost.com/$index.jpg';
     try {
       final response = await http.get(Uri.parse(url));
@@ -111,31 +236,34 @@ class _SavingScreenState extends State<SavingScreen>
     }
   }
 
+  // ★글이 아닌 페이지 단위로 표시
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Post Saving Status'),
+        title: Text('테런 게시글 저장기 (by 꾸밈)'),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              isSaving
-                  ? '저장 중: $currentPost / $totalPosts'
-                  : '저장이 완료되었습니다!',
-              style: TextStyle(fontSize: 24),
-            ),
-            const SizedBox(height: 20),
-            LinearProgressIndicator(
-              value: currentPost / totalPosts,
-              minHeight: 10,
-            ),
-          ],
+      body: errorStr != null ? Center(child: Text('에러 : $errorStr', style: const TextStyle(fontSize: 24))) :
+        widget.endPage == null ? const Center(child: CircularProgressIndicator()) :
+        Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                isSaving
+                    ? '저장 중: $cmtPageIdx / ${widget.endPage} 페이지'
+                    : '저장이 완료되었습니다!',
+                style: const TextStyle(fontSize: 24),
+              ),
+              const SizedBox(height: 20),
+              LinearProgressIndicator(
+                value: cmtPageIdx / widget.endPage!,
+                minHeight: 10,
+              ),
+            ],
+          ),
         ),
-      ),
     );
   }
 }

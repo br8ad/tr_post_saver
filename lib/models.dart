@@ -1,4 +1,3 @@
-// import 'dart:convert';  // JSON 데이터를 파싱하기 위해 필요
 // import 'package:intl/intl.dart';  // 날짜 변환을 위해 필요
 
 //   final jsonData = jsonDecode(jsonString);
@@ -54,6 +53,7 @@ String convertComment(String input) {
   return input;
 }
 
+// 영상링크 저장 시엔 그대로, 접근 시엔 https://를 붙여 사용하기
 String? sanitizeUrl(String? url) {
   if (url == null) return null;
   return url.replaceAll(RegExp(r'https?://|www\.'), '');  // https:, //, www. 3가지를 제거
@@ -79,13 +79,22 @@ class PostListModel {
 
   factory PostListModel.fromJson(Map<String, dynamic> json) {
     return PostListModel(
-      total: json['total'] ?? 0,
-      page: json['page'] ?? 0,
-      list: json['list'] == null ? [] :
-          (json['list'] as List<dynamic>)
+      total: json['value']?['total'] ?? 0,
+      page: json['value']?['page'] ?? 0,
+      list: json['value']?['list'] == null ? [] :
+          (json['value']?['list'] as List<dynamic>)
           .map((item) => PostPreview.fromJson(item))
           .toList(),
     );
+  }
+
+  static String getJsonUrl(String userCode, int page)
+  {
+    return
+      'https://api.onstove.com/cwms/v2.1/user/41598098/article/list?target_member_no=$userCode'
+      '&target_seq=86&activity_type_code=ARTICLE&content_yn=Y&summary_yn=Y&sort_type_code=LATEST'
+      '&interaction_type_code=LIKE,+DISLIKE,+VIEW,+COMMENT&request_id=CM&page=$page&size=24';
+      // LIKE,+VIEW,+COMMENT 에 DISLIKE를 추가했더니 항목이 생겼다! (토론게시판->PostModel 접근이 필요없어짐!)
   }
 }
 
@@ -98,11 +107,14 @@ class PostPreview {
   final DateTime createDatetime;
   final int viewScore;
   final int likeScore;
+  final int dislikeScore;  // 토론게시판 아닐 경우 0
   final int commentScore;
   final String pollYn;
   final String movieYn;
 
-  final String? mediaThumbnailUrl;  // (영상링크)저장 시엔 그대로, 접근 시엔 https://를 붙여 사용하기.
+  // article_id 앞 2글자가 TR인 경우에만 사용 (외엔 postModel 원본 링크 접근)
+  // 접근 시엔 https://를 붙여 사용하기
+  final String? mediaThumbnailUrl;
   final String? headlineName;
 
   PostPreview({
@@ -114,6 +126,7 @@ class PostPreview {
     required this.createDatetime,
     required this.viewScore,
     required this.likeScore,
+    required this.dislikeScore,
     required this.commentScore,
     required this.pollYn,
     required this.movieYn,
@@ -130,14 +143,15 @@ class PostPreview {
       summary: convertPost(json['summary'] ?? ''),
       mediaCount: json['media_count'] ?? 0,
       createDatetime: DateTime.fromMillisecondsSinceEpoch((json['create_datetime'] ?? 0) * 1000),
-      viewScore: json['user_interaction_score_info']['view_score'] ?? 0,
-      likeScore: json['user_interaction_score_info']['like_score'] ?? 0,
-      commentScore: json['user_interaction_score_info']['comment_score'] ?? 0,
-      pollYn: json['attach_summary_info']['poll_yn'] ?? '',
-      movieYn: json['attach_summary_info']['movie_yn'] ?? '',
+      viewScore: json['user_interaction_score_info']?['view_score'] ?? 0,
+      likeScore: json['user_interaction_score_info']?['like_score'] ?? 0,
+      dislikeScore: json['user_interaction_score_info']?['dislike_score'] ?? 0,
+      commentScore: json['user_interaction_score_info']?['comment_score'] ?? 0,
+      pollYn: json['attach_summary_info']?['poll_yn'] ?? '',
+      movieYn: json['attach_summary_info']?['movie_yn'] ?? '',
 
       mediaThumbnailUrl: sanitizeUrl(json['media_thumbnail_url']),
-      headlineName: json['headline_info']['headline_name'],
+      headlineName: json['headline_info']?['headline_name'],
     );
   }
 
@@ -167,16 +181,14 @@ class PostPreview {
 // PostModel 클래스 정의
 class PostModel {
   final List<PostMedia>? list; // 토론게시판 싫어요 참조용으로 오는 경우, null일 수도 있음
-  final int dislikeScore;      // 토론게시판 아닐 경우 0
 
   PostModel({
     required this.list,
-    required this.dislikeScore,
   });
 
   // JSON 데이터를 객체로 변환
   factory PostModel.fromJson(Map<String, dynamic> json) {
-    var mediaList = json['value']['attach_info']['media_info']['list'];
+    var mediaList = json['value']?['attach_info']?['media_info']?['list'];
     List<PostMedia>? mediaItems;
 
     if (mediaList != null) {
@@ -189,14 +201,21 @@ class PostModel {
 
     return PostModel(
       list: mediaItems,
-      dislikeScore: json['value']['user_interaction_score_info']['dislike_score'] ?? 0,
     );
+  }
+
+  static String getJsonUrl(String articleId)
+  {
+    return
+      'https://api.onstove.com/cwms/v3.0/article?article_id=$articleId'
+      '&interaction_type_code=LIKE,+DISLIKE,+VIEW,+COMMENT&translation_yn=N&request_id=CM';
+      // 뒷줄을 주석처리해도 작동하긴 하지만 json 용량엔 변함이 없음 + request_id는 지우면 오히려 늘어남
   }
 }
 
 class PostMedia {
   final String mediaTypeCode; // IMAGE or MOVIE. 혹시 다른값이 온다면 무작업
-  final String? mediaUrl;     // 이미지/영상 링크지만 혹시 모르니 nullable
+  final String mediaUrl;     // 영상링크 저장 시엔 그대로, 접근 시엔 https://를 붙여 사용하기
 
   PostMedia({
     required this.mediaTypeCode,
@@ -207,7 +226,7 @@ class PostMedia {
   factory PostMedia.fromJson(Map<String, dynamic> json) {
     return PostMedia(
       mediaTypeCode: json['media_type_code'] ?? '',
-      mediaUrl: sanitizeUrl(json['media_url'] ?? ''),
+      mediaUrl: sanitizeUrl(json['media_url']) ?? '',
     );
   }
 
@@ -235,35 +254,55 @@ class PostMedia {
   }
 }
 
-class CommentModel {
-  static const int kMaxListSize = 20;
+class CommentListModel {
+  static const int kMaxCommentListSize = 20;
+  static const int kMaxReplyListSize = 5;
 
   final int total; // 유효하지 않은 페이지번호/링크 = 0
+  final String nextYn; // 다음 페이지가 없다면 'N' (대문자 주의!)
   final List<CommentDetail> list; // 댓글이 없으면 null 아닌 []
 
   // 생성자
-  CommentModel({required this.total, required this.list});
+  CommentListModel({required this.total, required this.nextYn, required this.list});
 
   // JSON 데이터를 CommentModel 객체로 변환하는 factory constructor
-  factory CommentModel.fromJson(Map<String, dynamic> json) {
-    return CommentModel(
-      total: json['value']['total'] ?? 0,  // value 클래스에서 total 값을 가져옴
-      list: json['value']['list'] == null ? [] :
+  factory CommentListModel.fromJson(Map<String, dynamic> json) {
+    return CommentListModel(
+      total: json['value']?['total'] ?? 0,
+      nextYn: json['value']?['next_yn'] ?? 'N',
+      list: json['value']?['list'] == null ? [] :
           (json['value']['list'] as List<dynamic>)
           .map((item) => CommentDetail.fromJson(item))
           .toList(),  // value 클래스에서 list를 가져와 CommentDetail 객체로 변환
     );
   }
+  // CREATE = 등록순
+  static String getCommentJsonUrl(String articleId, int page)
+  {
+    return
+      'https://api.onstove.com/cwms/v1.1/article/$articleId'
+      '/comment/list?size=20&page=$page&sort_type_code=CREATE&interaction_type_code=LIKE,+DISLIKE,+COMMENT&request_id=CM';
+  }
+  // LATEST = 최신순
+  // 사용하는 측에서 역순(4~0) 저장 -> 답글은 이래야 등록순이 됨
+  static String getReplyJsonUrl(String commentId, int page)
+  {
+    return
+      'https://api.onstove.com/cwms/v1.0/article/9814941/comment/$commentId'
+      '/list?size=5&page=$page&sort_type_code=LATEST&interaction_type_code=LIKE,+DISLIKE&request_id=CM';
+  }
 }
 
-// 댓글 세부 정보 클래스
+// 댓글/답글 세부 정보 클래스
 class CommentDetail {
-  final String commentId;
+  final String commentId;  // 답글일 땐 ''
+  final int commentScore;  // 답글일 땐 0
+
   final String content;
   final DateTime createDatetime;
   final int likeScore;
   final int dislikeScore;
-  final int commentScore;
+
   final String nickname;    // fromJson에서 비유효값은 '알 수 없음'으로 변환
   final int characterLevel; // convertLevel()을 통해 변환해서 사용할 것
 
@@ -286,32 +325,32 @@ class CommentDetail {
 
     return CommentDetail(
       commentId: json['comment_id'] ?? '',
+      commentScore: json['user_interaction_score_info']?['comment_score'] ?? 0,
+
       content: convertComment(json['content'] ?? ''),
       createDatetime: DateTime.fromMillisecondsSinceEpoch((json['create_datetime'] ?? 0) * 1000),
-      likeScore: json['user_interaction_score_info']['like_score'] ?? 0,
-      dislikeScore: json['user_interaction_score_info']['dislike_score'] ?? 0,
-      commentScore: json['user_interaction_score_info']['comment_score'] ?? 0,
+      likeScore: json['user_interaction_score_info']?['like_score'] ?? 0,
+      dislikeScore: json['user_interaction_score_info']?['dislike_score'] ?? 0,
       nickname: (userInfo['nickname'] ?? '') == '' ? '알 수 없음' : userInfo['nickname'],
       characterLevel: int.tryParse(userGameInfo['character_level'] ?? '0') ?? 0,
     );
   }
 }
 
-// https://api.onstove.com/cwms/v1.0/article/9814941/comment/75614618/list?size=5&page=1&sort_type_code=LATEST&interaction_type_code=LIKE,+DISLIKE&request_id=CM&timestemp=1724236579960
+// https://api.onstove.com/cwms/v1.0/article/9814941/comment/75614618/list?size=5&page=1&sort_type_code=LATEST&interaction_type_code=LIKE,+DISLIKE&request_id=CM
 
-// 앞으로 가는 ★LATEST로 해놓고
-//
-// 4 3 2 1 0번 순으로 저장하면 되겠네
+// ★LATEST로 해놓고
+// 역순으로 저장하면 되겠네 (4 3 2 1 0번) (page는 순서대로 맞음)
 // 근데 번호는 0 1 2 3 4 돼야할거니까 (댓글/답글 번호 = 누적 댓글+답글 번호)
 // nowReplyinPage 자체는 0 1 2 3 4지만
 // 저장하는쪽에서 (4 - nowReplyinPage) 해서 써야할둣 + 누적
 //
 // 아니면 create순 일 경우엔
 // 마지막 page부터 보는 대신에
-// list는 역순아니네.
+// list는 역순아니네
 //
 // 뭐가 됐든 둘중하나는 역순으로 하는건데
-// 걍 list를 역순하지모
+// 걍 list를 역순하지 모 -> ㅇㅇ LATEST가 덜 복잡한듯. 리스트는 size 5로 고정이니까! page역순이면 /5해야함
 //
 // 그리고 replyPage도 내부상 필요는함
 // 근데 굳이 출력은 필요없을듯 글목록도 아니고
