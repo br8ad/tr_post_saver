@@ -97,7 +97,7 @@ class SavingScreenState extends State<SavingScreen>
         //    page%10이 1일 경우 txt 생성
         if (txtFile == null || postPageIdx % 10 == 1)
         {
-         txtFile = File('$directoryPath/$postPageIdx-${roundUpToTens(postPageIdx)}p.txt');
+         txtFile = File('$directoryPath\\$postPageIdx-${roundUpToTens(postPageIdx)}p.txt');
          await txtFile?.create();
         }
 
@@ -356,7 +356,7 @@ class SavingScreenState extends State<SavingScreen>
   // 10페이지 단위로 생성 (ex, 11-20p, (초기값이 27일시)27-30p)
   File? txtFile;
   String? directoryPath;
-  String? get imagePath => '$directoryPath/사진';
+  String? get imagePath => '$directoryPath\\사진';   // 윈도우즈 파일 경루 = 역슬래시, 웹 = 슬래시
 
   Future<void> exportText(String text) async
   {
@@ -379,7 +379,7 @@ class SavingScreenState extends State<SavingScreen>
     final response = await http.get(Uri.parse(url));
 
     if (response.statusCode == 200) {
-      final file = File('$imagePath/$fileName$extension');
+      final file = File('$imagePath\\$fileName$extension');
       await file.writeAsBytes(response.bodyBytes);
     }
     else {
@@ -439,51 +439,5 @@ class SavingScreenState extends State<SavingScreen>
           ),
         ),
     );
-  }
-}
-
-//   // 파일에 문자열 추가
-//   await fileHandler.appendToFile('This is a new line of text.');
-//   await fileHandler.appendToFile('This is another line of text.');
-//
-//   // 파일 내용 읽기
-//   String fileContent = await fileHandler.readFile();
-//   print(fileContent);
-
-class FileHandler {
-  // 파일 경로 가져오기
-  // ex, 1~10페, 92~100페
-  Future<String> getFilePath(String fileName) async {
-    final directory = await getApplicationDocumentsDirectory();
-    return '${directory.path}/$fileName.txt';  // 파일 이름을 지정
-  }
-
-  // 파일에 문자열 추가
-  Future<void> appendToFile(String fileName, String text) async {
-    final filePath = await getFilePath(fileName);
-    final file = File(filePath);
-
-    // 파일이 존재하지 않으면 생성 후 쓰기
-    if (!(await file.exists())) {
-      await file.create(recursive: true);
-    }
-
-    // 파일 끝에 문자열 추가
-    await file.writeAsString(
-      '$text\n',
-      mode: FileMode.append, // append 모드로 설정
-      flush: true, // 데이터를 즉시 디스크에 기록
-    );
-  }
-
-  // 파일 읽기 (저장된 내용 확인용)
-  Future<String> readFile(String fileName) async {
-    try {
-      final filePath = await getFilePath(fileName);
-      final file = File(filePath);
-      return await file.readAsString();
-    } catch (e) {
-      return 'Error reading file: $e';
-    }
   }
 }

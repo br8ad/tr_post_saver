@@ -95,6 +95,7 @@ class MyCustomFormState extends State<MyCustomForm> {
             // Start Page TextField
             TextFormField(
               //controller: _startPageController,
+              initialValue: '1',
               decoration: const InputDecoration(
                 labelText: '시작 페이지',
                 floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -118,7 +119,7 @@ class MyCustomFormState extends State<MyCustomForm> {
             TextFormField(
               //controller: _endPageController,
               decoration: const InputDecoration(
-                labelText: '끝 페이지 (미설정 = 끝페까지)',
+                labelText: '끝 페이지 (미설정 = 맨끝)',
                 floatingLabelBehavior: FloatingLabelBehavior.always,
               ),
               validator: (value) {
@@ -163,7 +164,7 @@ class MyCustomFormState extends State<MyCustomForm> {
 
             // Checkboxes
             CheckboxListTile(
-              title: const Text('미디어 (영상(링크),사진)'),
+              title: const Text('미디어 (영상(링크), 사진)'),
               value: bMedia,
               onChanged: (bool? value) {
                 setState(() {
