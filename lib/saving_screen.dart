@@ -220,33 +220,46 @@ class SavingScreenState extends State<SavingScreen>
            cmtIdxInPage < cmtList!.list.length;
            cmtIdxInPage++, cmtReplyCnt++)
       {
-        // 댓글번호) (레벨) / 닉넴(본인제외) / 날짜-시간 / (답5) / (12b-3p)
-        await exportText(
-          '$cmtReplyCnt) '
-          '${getUserInfoStr(
-              memberNo: nowComment.memberNo,
-              level: nowComment.characterLevel,
-              name: nowComment.nickname,
-          )}'
-          '${convertDateTime(nowComment.createDatetime)}'
-          '${nowComment.commentScore == 0 ? '' : ' / 답${nowComment.commentScore}'}'
-          '${convertReactionScore(nowComment.likeScore, nowComment.dislikeScore)}'
-          '\n'
-          '${nowComment.content}\n\n'
-        );
-
-        // 이미지 저장
-        if (widget.bMedia)
+        // 삭제댓일 경우
+        if (nowComment.isDeleted)
         {
-          int imageIdx = 0;
-          for (var nowImage in nowComment.imageUrls)
+          await exportText(
+            'x) 삭제됨 / ${nowComment.createDatetime}'
+            '${nowComment.commentScore == 0 ? '' : ' / 답${nowComment.commentScore}'}'
+          );
+          cmtReplyCnt--;
+        }
+        // 정상댓일 경우
+        else
+        {
+          // 댓글번호) (레벨) / 닉넴(본인제외) / 날짜-시간 / (답5) / (12b-3p)
+          await exportText(
+            '$cmtReplyCnt) '
+            '${getUserInfoStr(
+                memberNo: nowComment.memberNo,
+                level: nowComment.characterLevel,
+                name: nowComment.nickname,
+            )}'
+            '${convertDateTime(nowComment.createDatetime)}'
+            '${nowComment.commentScore == 0 ? '' : ' / 답${nowComment.commentScore}'}'
+            '${convertReactionScore(nowComment.likeScore, nowComment.dislikeScore)}'
+            '\n'
+            '${nowComment.content}\n\n'
+          );
+
+          // 이미지 저장
+          if (widget.bMedia)
           {
-            await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
-            imageIdx++;
+            int imageIdx = 0;
+            for (var nowImage in nowComment.imageUrls)
+            {
+              await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
+              imageIdx++;
+            }
           }
         }
 
-        // 답글이 있을 경우 처리
+        // 답글이 있을 경우 처리 (삭제댓도)
         if (nowComment.commentScore >= 1) await exportReply();
       }
 
@@ -272,29 +285,40 @@ class SavingScreenState extends State<SavingScreen>
            replyIdxInPage >= 0;
            replyIdxInPage--, cmtReplyCnt++)
       {
-        // comment와 차이점 = -> 추가, 답n 없음
-        // -> 댓글번호) (레벨) / 닉넴(본인제외) / 날짜-시간 / (12b-3p)
-        await exportText(
-            '-> $cmtReplyCnt) '
-                '${getUserInfoStr(
-              memberNo: nowReply.memberNo,
-              level: nowReply.characterLevel,
-              name: nowReply.nickname,
-            )}'
-                '${convertDateTime(nowReply.createDatetime)}'
-                '${convertReactionScore(nowReply.likeScore, nowReply.dislikeScore)}'
-                '\n\n'
-                '${nowReply.content}\n\n'
-        );
 
-        // 이미지 저장
-        if (widget.bMedia)
+        // 삭제답글일 경우
+        if (nowComment.isDeleted)
         {
-          int imageIdx = 0;
-          for (var nowImage in nowReply.imageUrls)
+          await exportText('-> x) 삭제됨 / ${nowComment.createDatetime}');
+          cmtReplyCnt--;
+        }
+        // 정상답글일 경우
+        else
+        {
+          // comment와 차이점 = -> 추가, 답n 없음
+          // -> 댓글번호) (레벨) / 닉넴(본인제외) / 날짜-시간 / (12b-3p)
+          await exportText(
+              '-> $cmtReplyCnt) '
+              '${getUserInfoStr(
+                memberNo: nowReply.memberNo,
+                level: nowReply.characterLevel,
+                name: nowReply.nickname,
+              )}'
+              '${convertDateTime(nowReply.createDatetime)}'
+              '${convertReactionScore(nowReply.likeScore, nowReply.dislikeScore)}'
+              '\n\n'
+              '${nowReply.content}\n\n'
+          );
+
+          // 이미지 저장
+          if (widget.bMedia)
           {
-            await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
-            imageIdx++;
+            int imageIdx = 0;
+            for (var nowImage in nowReply.imageUrls)
+            {
+              await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
+              imageIdx++;
+            }
           }
         }
       }

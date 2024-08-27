@@ -279,10 +279,12 @@ class CommentListModel {
 // 댓글/답글 세부 정보 클래스
 // bMedia 미체크시 사진은 저장하지 않으나 영상링크는 저장함
 class CommentDetail {
-  final String commentId;  // 답글일 땐 ''
+  final String commentId;  // 답글일 땐 '', 삭제댓글도 id는 존재
   final int commentScore;  // 답글일 땐 0
 
-  late final String content;  // convertContent를 통해 초기화
+  late final String? content;  // convertContent를 통해 초기화, null이면 삭제된 게시글
+  bool get isDeleted => content == null;
+
   final DateTime createDatetime;
   final int likeScore;
   final int dislikeScore;
@@ -303,10 +305,10 @@ class CommentDetail {
     required this.memberNo,
     required this.nickname,
     required this.characterLevel,
-    required String content,
+    required String? content,
   })
   {
-    convertContent(content);
+    this.content = convertContent(content);
   }
 
   // JSON 데이터를 CommentDetail 객체로 변환하는 factory constructor
@@ -318,7 +320,7 @@ class CommentDetail {
       commentId: json['comment_id'] ?? '',
       commentScore: json['user_interaction_score_info']?['comment_score'] ?? 0,
 
-      content: json['content'] ?? '',
+      content: json['content'],
       createDatetime: DateTime.fromMillisecondsSinceEpoch((json['create_datetime'] ?? 0)),
       likeScore: json['user_interaction_score_info']?['like_score'] ?? 0,
       dislikeScore: json['user_interaction_score_info']?['dislike_score'] ?? 0,
@@ -330,21 +332,27 @@ class CommentDetail {
   }
 
   // content 전환 및 imageUrls 초기화
-  void convertContent(String content) {
-    if (content.isEmpty) return;
+  String? convertContent(String? content) {
+    if (content == null) return null;
+    if (content.isEmpty) return '';
 
     // LinkedHashMap을 사용하여 순서 보장
     final Map<String, String> replacements = LinkedHashMap.from({
+      // 유니코드 이스케이프
+      // -> html 엔티티와 다르게 이건 자동 변환 된대 (ex, <와 \u003C가 같은값)
       r'\u003C/p\u003E\u003Cp\u003E': ' ',
       r'\u003Cp\u003E': '',
       r'\u003C/p\u003E': '',
       r'\u003Cbr\u003E': '',
+      // html 엔티티
       r'&nbsp;': '',
       r'&lt;': '<',
       r'&gt;': '>',
       r'&amp;': '&',
       r'\"': '“',
     });
+
+    // html엔티티를 알아서 변환한대니까
 
     // Iterate through the map and replace each pattern
     replacements.forEach((pattern, replacement) {
@@ -356,7 +364,8 @@ class CommentDetail {
     final imgIdRegex = RegExp(r'\\u003Cimg id=\\"(.*?)\\".*?\\u003E');
     final spanClassRegex = RegExp(r'\\u003Cspan class=\\"(.*?)\\".*?\\/span\\u003E');
 
-    // HTML 엔티티를 실제 문자로 변환 후, 정규 표현식을 수정
+    // html_parser를 통해 HTML 엔티티가 변환됐다면 아래와 같을것.
+    // -> 근데 변환을 하게되면 <과 \u003C가 구분 불가
     // final imgSrcRegex = RegExp(r'<img src="(.*?)".*?>');
     // final imgIdRegex = RegExp(r'<img id="(.*?)".*?>');
     // final spanClassRegex = RegExp(r'<span class="(.*?)".*?\/span>');
@@ -380,7 +389,7 @@ class CommentDetail {
       return ' (영상 ${sanitizeUrl(url)}) ';
     });
 
-    this.content = content.trim();
+    return content.trim();
   }
 
   // ex, '\"https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/application_no/10009/stove-default-emoji/dre/2.png\"';
