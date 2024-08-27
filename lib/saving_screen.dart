@@ -151,18 +151,18 @@ class SavingScreenState extends State<SavingScreen>
                 fromJson: (json) => PostModel.fromJson(json),
               );
 
-              for (int mediaIdx = 0;
-                   mediaIdx < nowPostPreview.mediaCount;
-                   mediaIdx++)
+              int imageIdx = 0;
+              for (var nowMedia in post!.list!)
               {
-                switch (post?.list?[mediaIdx].mediaTypeCode)
+                switch (nowMedia.mediaTypeCode)
                 {
                   case 'IMAGE':
-                    await exportImage(post!.list![mediaIdx].mediaUrl, '$postCnt-$mediaIdx');
+                    await exportImage(nowMedia.mediaUrl, '$postCnt-$imageIdx');
+                    imageIdx++;
                     break;
                   // ex, (영상 youtube.com/embed/1234) (영상 v.kr.kollus.com/jSxFGLdo)
                   case 'MOVIE':
-                    await exportText('(영상 ${post?.list?[mediaIdx].mediaUrl}) ');
+                    await exportText('(영상 ${nowMedia.mediaUrl}) ');
                     break;
                 }
               }
@@ -174,7 +174,7 @@ class SavingScreenState extends State<SavingScreen>
 
           // 댓글을 체크했고, 댓글이 있을 경우 처리
           if (widget.bComment &&
-              postList!.list[postIdxInPage].commentScore >= 1) exportComment();
+              postList!.list[postIdxInPage].commentScore >= 1) await exportComment();
         }
 
         // 99. 한 페이지 완료 시 작업
@@ -200,12 +200,15 @@ class SavingScreenState extends State<SavingScreen>
 
     while (true)
     {
+      cmtList = await fetchModel<CommentListModel>(
+        url: CommentListModel.getCommentJsonUrl(nowPostPreview.articleId, cmtPageIdx),
+        fromJson: (json) => CommentListModel.fromJson(json),
+      );
+
       for (cmtIdxInPage = 0;
            cmtIdxInPage < cmtList!.list.length;
            cmtIdxInPage++, cmtReplyCnt++)
       {
-
-        // myName/Level 체크를 위해 code도 갖고와야겟구만 ~ 닉은 바뀔수도 있는거라서~
         // 댓글번호) (레벨) / 닉넴(본인제외) / 날짜-시간 / (답5) / (12b-3p)
         await exportText(
           '$cmtReplyCnt) '
@@ -218,12 +221,19 @@ class SavingScreenState extends State<SavingScreen>
           '${nowComment.commentScore == 0 ? '' : ' / 답${nowComment.commentScore}'}'
           '${convertReactionScore(nowComment.likeScore, nowComment.dislikeScore)}'
           '\n\n'
+          '${nowComment.content}\n\n'
         );
 
-        // exportImage(post!.list![mediaIdx].mediaUrl, '$postCnt-$cmtReplyCnt-$mediaIdx');
+        // 이미지 저장
+        int imageIdx = 0;
+        for (var nowImage in nowComment.imageUrls)
+        {
+          await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
+          imageIdx++;
+        }
 
         // 답글이 있을 경우 처리
-        if (nowComment.commentScore >= 1) exportReply();
+        if (nowComment.commentScore >= 1) await exportReply();
       }
 
       if (cmtList!.nextYn == 'N') return;
@@ -232,45 +242,44 @@ class SavingScreenState extends State<SavingScreen>
     }
   }
 
-  // 인자 = 댓글에서 사용 (post는 본인임이 확실하니까 사용 X)
-  String getUserInfoStr({int? memberNo, required int level, required String name})
-  {
-    // 타인일 경우
-    if (memberNo != null && memberNo != widget.userCode)
-    {
-      return '${level == 0 ? '' : '${convertLevel(level)} / '}'
-             '$name / ';
-    }
-
-    // 본인일 경우
-    return '${level == 0 || recentMyLevel == level ? ''
-              : '${convertLevel(recentMyLevel = level)} / '}'
-            '${recentMyName == name ? ''
-              : '${recentMyName = name} / '}';
-  }
-
   Future<void> exportReply() async
   {
     replyPageIdx = 1;
+    cmtReplyCnt++;
 
     while (true)
     {
-      try {
-        replyList = await fetchModel<CommentListModel>(
-          url: CommentListModel.getReplyJsonUrl(cmtList!.list[cmtIdxInPage].commentId, replyPageIdx),
-          fromJson: (json) => CommentListModel.fromJson(json),
-        );
-      }
-      catch (e) {
-        setState(() => errorStr = e.toString());
-        return;
-      }
+      replyList = await fetchModel<CommentListModel>(
+        url: CommentListModel.getReplyJsonUrl(cmtList!.list[cmtIdxInPage].commentId, replyPageIdx),
+        fromJson: (json) => CommentListModel.fromJson(json),
+      );
 
       for (replyIdxInPage = replyList!.list.length -1; // ★역순
            replyIdxInPage >= 0;
            replyIdxInPage--, cmtReplyCnt++)
       {
-        // -> 번호) 답글
+        // comment와 차이점 = -> 추가, 답n 없음
+        // -> 댓글번호) (레벨) / 닉넴(본인제외) / 날짜-시간 / (12b-3p)
+        await exportText(
+            '-> $cmtReplyCnt) '
+                '${getUserInfoStr(
+              memberNo: nowReply.memberNo,
+              level: nowReply.characterLevel,
+              name: nowReply.nickname,
+            )}'
+                '${convertDateTime(nowReply.createDatetime)}'
+                '${convertReactionScore(nowReply.likeScore, nowReply.dislikeScore)}'
+                '\n\n'
+                '${nowReply.content}\n\n'
+        );
+
+        // 이미지 저장
+        int imageIdx = 0;
+        for (var nowImage in nowReply.imageUrls)
+        {
+          await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
+          imageIdx++;
+        }
       }
 
       if (replyList!.nextYn == 'N') return;
@@ -293,6 +302,23 @@ class SavingScreenState extends State<SavingScreen>
       // 서버가 OK 응답을 반환하지 않으면 예외를 던집니다.
       throw Exception('페이지 로딩 실패');
     }
+  }
+
+  // 인자 = 댓글에서 사용 (post는 본인임이 확실하니까 사용 X)
+  String getUserInfoStr({int? memberNo, required int level, required String name})
+  {
+    // 타인일 경우
+    if (memberNo != null && memberNo != widget.userCode)
+    {
+      return '${level == 0 ? '' : '${convertLevel(level)} / '}'
+          '$name / ';
+    }
+
+    // 본인일 경우
+    return '${level == 0 || recentMyLevel == level ? ''
+        : '${convertLevel(recentMyLevel = level)} / '}'
+        '${recentMyName == name ? ''
+        : '${recentMyName = name} / '}';
   }
 
   // void saveToFile(String content, int pageNumber) {
@@ -369,13 +395,13 @@ class SavingScreenState extends State<SavingScreen>
             children: [
               Text(
                 isSaving
-                    ? '저장 중: $cmtPageIdx / ${widget.endPage} 페이지'
+                    ? '저장 중: $postPageIdx / ${widget.endPage} 페이지'
                     : '저장이 완료되었습니다!',
                 style: const TextStyle(fontSize: 24),
               ),
               const SizedBox(height: 20),
               LinearProgressIndicator(
-                value: cmtPageIdx / widget.endPage!,
+                value: postPageIdx / widget.endPage!,
                 minHeight: 10,
               ),
             ],
