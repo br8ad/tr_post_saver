@@ -1,4 +1,4 @@
-# tr_post_saver
+# 테런 게시글 저장기 (by 꾸밈)
 
 A new Flutter project.
 

@@ -80,14 +80,26 @@ class SavingScreenState extends State<SavingScreen>
   CommentDetail get nowComment => cmtList!.list[cmtIdxInPage];
   CommentDetail get nowReply => replyList!.list[replyIdxInPage];
 
+  // 십의 자리 올림 함수
+  static int roundUpToTens(int num) => (num / 10).ceil() * 10;
+
   Future<void> startSaving() async
   {
-    setState(() => isSaving = true);
-
     try
     {
+      await initDirectory();
+      setState(() => isSaving = true);
+
       while (true)
       {
+        // 0. txt가 null이거나
+        //    page%10이 1일 경우 txt 생성
+        if (txtFile == null || postPageIdx % 10 == 1)
+        {
+         txtFile = File('$directoryPath/$postPageIdx-${roundUpToTens(postPageIdx)}p.txt');
+         await txtFile?.create();
+        }
+
         // 1. 불러옴
         postList = await fetchModel<PostListModel>(
           url: PostListModel.getJsonUrl(widget.userCode, postPageIdx),
@@ -321,31 +333,38 @@ class SavingScreenState extends State<SavingScreen>
         : '${recentMyName = name} / '}';
   }
 
-  // void saveToFile(String content, int pageNumber) {
-  //   // 10페이지 단위로 파일을 나누는 로직
-  //   int fileIndex = pageNumber ~/ 10;
-  //   File file = File('output_${fileIndex}.txt');
-  //   file.writeAsStringSync(content, mode: FileMode.append);
-  // }
-
-  Future<void> exportText(String text) async {
-    // 파일 경로 지정
-    final file = File('test.txt');
-
+  Future<void> initDirectory() async
+  {
     try {
-      // 파일이 존재하는지 확인하고, 파일이 없으면 생성
-      if (!await file.exists()) {
-        await file.create();
+      final directory = await getApplicationDocumentsDirectory();
+      directoryPath = directory.path;
+
+      final imageDirectory = Directory(imagePath!);
+
+      // 디렉토리가 존재하지 않으면 생성
+      if (!await imageDirectory.exists()) {
+        await imageDirectory.create(recursive: true); // recursive: 하위 디렉토리도 생성
       }
-
-      // 파일 끝에 content 추가
-      await file.writeAsString('$text\n', mode: FileMode.append);
-
-      print('Content added to test.txt');
-    } catch (e) {
-      // 오류 발생 시 처리
-      print('Error writing to file: $e');
     }
+    catch (e) {
+      throw '디렉토리 로딩 실패 ($e)';
+    }
+  }
+
+  // startSaving 윗줄에서 생성
+  // 10페이지 단위로 생성 (ex, 11-20p, (초기값이 27일시)27-30p)
+  File? txtFile;
+  String? directoryPath;
+  String? get imagePath => '$directoryPath/사진';
+
+  Future<void> exportText(String text) async
+  {
+    // 파일이 존재하는지 확인하고, 파일이 없으면 생성
+    // -> 생성을 확실히 startSaving 윗줄에서 하기 때문에 주석처리
+    // if (!await txtFile!.exists()) await txtFile?.create();
+
+    // 파일 끝에 content 추가
+    await txtFile?.writeAsString(text, mode: FileMode.append);
   }
 
   // fileName = 글번호-미디어번호 or 글번호-댓글번호-미디어번호
@@ -359,10 +378,10 @@ class SavingScreenState extends State<SavingScreen>
     final response = await http.get(Uri.parse(url));
 
     if (response.statusCode == 200) {
-      final directory = await getApplicationDocumentsDirectory();
-      final file = File('${directory.path}/$fileName$extension');
+      final file = File('$imagePath/$fileName$extension');
       await file.writeAsBytes(response.bodyBytes);
-    } else {
+    }
+    else {
       throw Exception('$fileName$extension 로드 실패');
     }
   }
@@ -381,10 +400,11 @@ class SavingScreenState extends State<SavingScreen>
 
   // ★글이 아닌 페이지 단위로 표시
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context)
+  {
     return Scaffold(
       appBar: AppBar(
-        title: Text('테런 게시글 저장기 (by 꾸밈)'),
+        title: const Text('테런 게시글 저장기 (by 꾸밈)'),
       ),
       body: errorStr != null ? Center(child: Text('에러 : $errorStr', style: const TextStyle(fontSize: 24))) :
         widget.endPage == null ? const Center(child: CircularProgressIndicator()) :
@@ -392,7 +412,8 @@ class SavingScreenState extends State<SavingScreen>
           padding: const EdgeInsets.all(16.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [
+            children:
+            [
               Text(
                 isSaving
                     ? '저장 중: $postPageIdx / ${widget.endPage} 페이지'
@@ -403,6 +424,10 @@ class SavingScreenState extends State<SavingScreen>
               LinearProgressIndicator(
                 value: postPageIdx / widget.endPage!,
                 minHeight: 10,
+              ),
+              ElevatedButton(
+                onPressed: () { },
+                child: const Text('저장 폴더 열기'),
               ),
             ],
           ),
