@@ -1,4 +1,5 @@
-// import 'package:intl/intl.dart';  // 날짜 변환을 위해 필요
+import 'dart:collection';
+import 'package:intl/intl.dart'; // 날짜 변환을 위해 필요
 
 //   final jsonData = jsonDecode(jsonString);
 //   final postList = PostListModel.fromJson(jsonData);
@@ -6,6 +7,16 @@
 //   print('Total: ${postList.total}');
 //   print('Page: ${postList.page}');
 //   print('First Post Title: ${postList.list[0].title}');
+
+String convertDateTime(DateTime dateTime) => DateFormat('yyMMdd-HH:mm').format(dateTime);
+String convertReactionScore(int likeScore, int dislikeScore)
+{
+  if ((likeScore + dislikeScore) == 0) return '';
+  // ex =  / 12b-3p
+  return ' / ${likeScore != 0 ? '${likeScore}b' : ''}'
+          '${likeScore != 0 && dislikeScore != 0 ? '-' : ''}'
+          '${dislikeScore != 0 ? '${dislikeScore}p' : ''}';
+}
 
 String convertLevel(int level) {
   if (level == 0) return '';  // 안전 장치. 애초에 level이 0이면 호출 않고 건너뛸 것 (레벨 출력 X)
@@ -30,27 +41,6 @@ String convertLevel(int level) {
 String convertPost(String input) {
   // Replacing \u003C with < and \u003E with >
   return input.replaceAll(r'\u003C', '<').replaceAll(r'\u003E', '>');
-}
-
-String convertComment(String input) {
-  // Define a map of patterns to replacements
-  const Map<String, String> replacements = {
-    r'\u003C/p\u003E\u003Cp\u003E\u003Cbr\u003E\u003C/p\u003E\u003Cp\u003E': ' ',
-    r'\u003Cp\u003E': '',
-    r'\u003C/p\u003E': '',
-    r'&nbsp;': '',
-    r'&lt;': '<',
-    r'&gt;': '>',
-    r'&amp;': '&',
-    r'\"': '“',
-  };
-
-  // Iterate through the map and replace each pattern
-  replacements.forEach((pattern, replacement) {
-    input = input.replaceAll(pattern, replacement);
-  });
-
-  return input;
 }
 
 // 영상링크 저장 시엔 그대로, 접근 시엔 https://를 붙여 사용하기
@@ -111,11 +101,14 @@ class PostPreview {
   final int commentScore;
   final String pollYn;
   final String movieYn;
+  final int characterLevel; // convertLevel()을 통해 변환해서 사용할 것
 
   // article_id 앞 2글자가 TR인 경우에만 사용 (외엔 postModel 원본 링크 접근)
   // 접근 시엔 https://를 붙여 사용하기
   final String? mediaThumbnailUrl;
   final String? headlineName;
+
+  // bool get hasReaction => (likeScore + dislikeScore) > 0;
 
   PostPreview({
     required this.boardSeq,
@@ -130,6 +123,7 @@ class PostPreview {
     required this.commentScore,
     required this.pollYn,
     required this.movieYn,
+    required this.characterLevel,
 
     this.mediaThumbnailUrl,
     this.headlineName,
@@ -149,17 +143,17 @@ class PostPreview {
       commentScore: json['user_interaction_score_info']?['comment_score'] ?? 0,
       pollYn: json['attach_summary_info']?['poll_yn'] ?? '',
       movieYn: json['attach_summary_info']?['movie_yn'] ?? '',
+      characterLevel: int.tryParse(json['user_info']?['user_game_info']?['character_level'] ?? '0') ?? 0,
 
       mediaThumbnailUrl: sanitizeUrl(json['media_thumbnail_url']),
       headlineName: json['headline_info']?['headline_name'],
     );
   }
 
-  // 680일 시 함수를 호출하지 않을 것임
-  String getBoardSeqName(int boardSeq) {
+  String get boardName {
     switch (boardSeq) {
       case 680:
-        return '런너';
+        return '';  // 런너 게시판은 표시 X
       case 127725:
         return '출석';
       case 1372:
@@ -229,29 +223,6 @@ class PostMedia {
       mediaUrl: sanitizeUrl(json['media_url']) ?? '',
     );
   }
-
-  // ex, '\"https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/application_no/10009/stove-default-emoji/dre/2.png\"';
-  //    -> (이모지) dre/2
-  String getEmojiStr(String input) {  // extract
-    // 입력 문자열에서 따옴표 제거
-    final cleanedInput = input.replaceAll('"', '');
-
-    // URL을 '/'를 기준으로 분리
-    final parts = cleanedInput.split('/');
-
-    // 마지막 두 구역 추출
-    if (parts.length < 2) return ''; // URL에 충분한 구역이 없는 경우 빈 문자열 반환
-
-    final lastPart = parts.last;
-    final secondLastPart = parts[parts.length - 2];
-
-    // 두 번째 마지막 구역의 확장자 제거
-    final extensionIndex = secondLastPart.lastIndexOf('.');
-    final pathWithoutExtension = extensionIndex != -1 ? secondLastPart.substring(0, extensionIndex) : secondLastPart;
-
-    // 마지막 두 구역을 결합
-    return '$pathWithoutExtension/$lastPart';
-  }
 }
 
 class CommentListModel {
@@ -294,11 +265,12 @@ class CommentListModel {
 }
 
 // 댓글/답글 세부 정보 클래스
+// bMedia 미체크시 사진은 저장하지 않으나 영상링크는 저장함
 class CommentDetail {
   final String commentId;  // 답글일 땐 ''
   final int commentScore;  // 답글일 땐 0
 
-  final String content;
+  late final String content;  // convertContent를 통해 초기화
   final DateTime createDatetime;
   final int likeScore;
   final int dislikeScore;
@@ -306,17 +278,22 @@ class CommentDetail {
   final String nickname;    // fromJson에서 비유효값은 '알 수 없음'으로 변환
   final int characterLevel; // convertLevel()을 통해 변환해서 사용할 것
 
+  final List<String> imageUrls = []; // convertContent를 통해 초기화, bMedia false면 사용 X
+
   // 생성자
   CommentDetail({
     required this.commentId,
-    required this.content,
+    required this.commentScore,
     required this.createDatetime,
     required this.likeScore,
     required this.dislikeScore,
-    required this.commentScore,
     required this.nickname,
     required this.characterLevel,
-  });
+    required String content,
+  })
+  {
+    convertContent(content);
+  }
 
   // JSON 데이터를 CommentDetail 객체로 변환하는 factory constructor
   factory CommentDetail.fromJson(Map<String, dynamic> json) {
@@ -327,13 +304,85 @@ class CommentDetail {
       commentId: json['comment_id'] ?? '',
       commentScore: json['user_interaction_score_info']?['comment_score'] ?? 0,
 
-      content: convertComment(json['content'] ?? ''),
+      content: json['content'] ?? '',
       createDatetime: DateTime.fromMillisecondsSinceEpoch((json['create_datetime'] ?? 0) * 1000),
       likeScore: json['user_interaction_score_info']?['like_score'] ?? 0,
       dislikeScore: json['user_interaction_score_info']?['dislike_score'] ?? 0,
       nickname: (userInfo['nickname'] ?? '') == '' ? '알 수 없음' : userInfo['nickname'],
       characterLevel: int.tryParse(userGameInfo['character_level'] ?? '0') ?? 0,
     );
+  }
+
+  // content 전환 및 imageUrls 초기화
+  void convertContent(String content) {
+    if (content.isEmpty) return;
+
+    // LinkedHashMap을 사용하여 순서 보장
+    final Map<String, String> replacements = LinkedHashMap.from({
+      r'\u003C/p\u003E\u003Cp\u003E': ' ',
+      r'\u003Cp\u003E': '',
+      r'\u003C/p\u003E': '',
+      r'\u003Cbr\u003E': '',
+      r'&nbsp;': '',
+      r'&lt;': '<',
+      r'&gt;': '>',
+      r'&amp;': '&',
+      r'\"': '“',
+    });
+
+    // Iterate through the map and replace each pattern
+    replacements.forEach((pattern, replacement) {
+      content = content.replaceAll(pattern, replacement);
+    });
+
+    // 조건에 따라 반복문을 통해 특정 문자열을 변환
+    final imgSrcRegex = RegExp(r'\\u003Cimg src=\\"(.*?)\\".*?\\u003E');
+    final imgIdRegex = RegExp(r'\\u003Cimg id=\\"(.*?)\\".*?\\u003E');
+    final spanClassRegex = RegExp(r'\\u003Cspan class=\\"(.*?)\\".*?\\/span\\u003E');
+
+    // 1. 이모지 replace
+    content = content.replaceAllMapped(imgSrcRegex, (match) {
+      String url = match.group(1) ?? '';
+      return ' (이모지 ${CommentDetail._getEmojiStr(url)}) ';
+    });
+
+    // 2. 사진 replace
+    content = content.replaceAllMapped(imgIdRegex, (match) {
+      String url = match.group(1) ?? '';
+      imageUrls.add(sanitizeUrl(url)!);
+      return ' (사진) ';
+    });
+
+    // 3. 영상링크 replace
+    content = content.replaceAllMapped(spanClassRegex, (match) {
+      String url = match.group(1) ?? '';
+      return ' (영상 ${sanitizeUrl(url)}) ';
+    });
+
+    this.content = content.trim();
+  }
+
+  // ex, '\"https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/application_no/10009/stove-default-emoji/dre/2.png\"';
+  //    -> (이모지) dre/2
+  static String _getEmojiStr(String input) {  // extract
+    // 입력 문자열에서 따옴표 제거
+    final cleanedInput = input.replaceAll('"', '');
+
+    // URL을 '/'를 기준으로 분리
+    final parts = cleanedInput.split('/');
+
+    // 마지막 두 구역 추출
+    if (parts.length < 2) return ''; // URL에 충분한 구역이 없는 경우 빈 문자열 반환
+
+    final lastPart = parts.last;
+    final secondLastPart = parts[parts.length - 2];
+
+    // 두 번째 마지막 구역의 확장자 제거
+    final extensionIndex = secondLastPart.lastIndexOf('.');
+    final pathWithoutExtension = extensionIndex != -1 ? secondLastPart.substring(0, extensionIndex) : secondLastPart;
+
+    // 마지막 두 구역을 결합
+    return '$pathWithoutExtension/$lastPart';
   }
 }
 

@@ -44,7 +44,7 @@ class MyCustomFormState extends State<MyCustomForm> {
   String userCode = '';
 
   // Checkboxes state
-  bool bImage       = true;
+  bool bMedia       = true;
   bool bComment     = true;
 
   @override
@@ -157,11 +157,11 @@ class MyCustomFormState extends State<MyCustomForm> {
 
             // Checkboxes
             CheckboxListTile(
-              title: const Text('사진'),
-              value: bImage,
+              title: const Text('미디어 (영상(링크),사진)'),
+              value: bMedia,
               onChanged: (bool? value) {
                 setState(() {
-                  bImage = value!;
+                  bMedia = value!;
                 });
               },
             ),
@@ -192,7 +192,7 @@ class MyCustomFormState extends State<MyCustomForm> {
                         endPage:     endPage,
                         userCode:    userCode,
                         bComment:    bComment,
-                        bImage:    bImage,
+                        bMedia:    bMedia,
                       )
                     ),
                   );

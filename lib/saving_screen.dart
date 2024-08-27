@@ -1,6 +1,7 @@
 import 'dart:convert';  // JSON 데이터를 파싱하기 위해 필요
 import 'dart:io';
 
+
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
@@ -28,14 +29,14 @@ class SavingScreen extends StatefulWidget {
   // final bool bCommentCnt;
   // final bool bBoardName;
   final bool bComment;
-  final bool bImage;
+  final bool bMedia;
 
   SavingScreen({
     required this.startPage,
     this.endPage,
     required this.userCode,
     this.bComment = true,
-    this.bImage = false,
+    this.bMedia = false,
   });
 
   @override
@@ -79,79 +80,123 @@ class _SavingScreenState extends State<SavingScreen>
   CommentListModel? cmtList;
   CommentListModel? replyList;
 
+  PostPreview get nowPostPreview => postList!.list[postIdxInPage];
+  CommentDetail get nowComment => cmtList!.list[cmtIdxInPage];
+  CommentDetail get nowReply => replyList!.list[replyIdxInPage];
+
+
   Future<void> startSaving() async
   {
     setState(() => isSaving = true);
 
-    while (true)
+    try
     {
-      // 1. 불러옴
-      try {
+      while (true)
+      {
+        // 1. 불러옴
         postList = await fetchModel<PostListModel>(
           url: PostListModel.getJsonUrl(widget.userCode, postPageIdx),
           fromJson: (json) => PostListModel.fromJson(json),
         );
+
+        // 1-1. total이 0일 경우 에러 처리
+        if (postList?.total == 0) throw '잘못된 페이지 참조';
+
+        // 2. (최초 1회) endPage 미설정 시 초기화
+        if (widget.endPage == null)
+        {
+          setState(() => widget.endPage = (postList!.total / PostListModel.kMaxListSize).ceil());
+        }
+
+        // 3. 본격 txt에 게시글 저장 작업
+
+        // n페 출력
+
+        for (postIdxInPage = 0;
+             postIdxInPage < postList!.list.length;
+             postIdxInPage++)
+        {
+          // - 텍스트 저장
+
+          // ※ 번호(0부터). [기타] 제목
+          // (레벨) / 201뷰 / 창작 / 날짜-시간 / 댓5 / 12b-3p / 설문 / 미디어1\n\n
+          await exportText(
+            '※ $postCnt. '
+            '${nowPostPreview.headlineName == null ? '' : '[${nowPostPreview.headlineName}] '}'
+            '${nowPostPreview.title}\n'
+
+            '${recentMyLevel == nowPostPreview.characterLevel ? ''
+                : '${convertLevel(recentMyLevel = nowPostPreview.characterLevel)} / '}'
+            '${nowPostPreview.viewScore}뷰'
+            '${nowPostPreview.boardName.isEmpty ? '' : ' / ${nowPostPreview.boardName}'}'
+            ' / ${convertDateTime(nowPostPreview.createDatetime)}'
+            '${nowPostPreview.commentScore == 0 ? '' : ' / 댓${nowPostPreview.commentScore}'}'
+            '${convertReactionScore(nowPostPreview.likeScore, nowPostPreview.dislikeScore)}'
+            '${nowPostPreview.pollYn == 'N' ? '' : ' / 설문'}'
+            '${nowPostPreview.mediaCount == 0 ? '' : ' / 미디어${nowPostPreview.mediaCount}'}'
+            '\n\n'
+          );
+
+          // - 미디어 저장 (이미지 = 파일, 영상 = 링크 출력, 이외 = 무작업)
+          if (widget.bMedia && nowPostPreview.mediaCount >= 1)
+          {
+            // 예전 게시글은 영상X, 이미지1개, preview만 존재하기에 preview에서 이미지 저장
+            if (nowPostPreview.articleId.substring(0, 2) == 'TR')
+            {
+              await exportImage(nowPostPreview.mediaThumbnailUrl!, '$postCnt-0');
+            }
+            // 최신 게시글은 미디어가 1개더라도
+            // 원본이미지/영상링크을 위해 postModel 참조
+            else
+            {
+              post = await fetchModel<PostModel>(
+                url: PostModel.getJsonUrl(nowPostPreview.articleId),
+                fromJson: (json) => PostModel.fromJson(json),
+              );
+
+              for (int mediaIdx = 0;
+                   mediaIdx < nowPostPreview.mediaCount;
+                   mediaIdx++)
+              {
+                switch (post?.list?[mediaIdx].mediaTypeCode)
+                {
+                  case 'IMAGE':
+                    await exportImage(post!.list![mediaIdx].mediaUrl, '$postCnt-$mediaIdx');
+                    break;
+                  // ex, (영상 youtube.com/embed/1234) (영상 v.kr.kollus.com/jSxFGLdo)
+                  case 'MOVIE':
+                    await exportText('(영상 ${post?.list?[mediaIdx].mediaUrl}) ');
+                    break;
+                }
+              }
+            }
+          }
+
+          // 본문
+          await exportText('${nowPostPreview.summary}\n\n');
+
+          // 댓글을 체크했고, 댓글이 있을 경우 처리
+          if (widget.bComment &&
+              postList!.list[postIdxInPage].commentScore >= 1) exportComment();
+        }
+
+        // 99. 한 페이지 완료 시 작업
+        setState(() => postPageIdx++);
+        postIdxInPage = 0;
+
+        if (postPageIdx-1 == widget.endPage) break;   // or postList.nextYn == 'N'으로 대체 가능 (필드 추가 必)
       }
-      // 1-1. 로딩을 못 했거나
-      catch (e) {
-        setState(() => errorStr = e.toString());
-        return;
-      }
-      // 1-2. total이 0일 경우 에러 처리
-      if (postList?.total == 0)
-      {
-        setState(() => errorStr = '잘못된 페이지 참조');
-        return;
-      }
-      // 2. (최초 1회) endPage 미설정 시 초기화
-      if (widget.endPage == null)
-      {
-        setState(() => widget.endPage = (postList!.total / PostListModel.kMaxListSize).ceil());
-      }
-
-      // 3. 본격 txt에 게시글 저장 작업
-
-      // n페 출력
-
-      for (postIdxInPage = 0;
-           postIdxInPage < postList!.list.length;
-           postIdxInPage++)
-      {
-        // - 텍스트 저장
-
-        // ※ 번호. [기타] 제목
-
-        // 레벨 / 201뷰 / 창작 / 날짜-시간 / 댓5 / 5♥ (12b-3p) / 설문 / 미디어 (n개. 1개는 표기X)
-
-        // - 이미지&영상 저장
-
-        // -> article_id 앞 2글자가 TR일 때만 previewUrl 사용하고
-        //    외엔 전부 postModel 참조
-
-        // (영상 youtube.com/embed/1234) * n
-        // -> 사진 옵션 관계없이 movie_yn이 Y라면 postModel 참조 ?? -> ?? 미디어로 통합하기로 했지? 다시 체크
-
-        // 본문
-
-        // string을 받는게 아니라. 제공해주면 txt에 쓰는애면 될듯?
-        await exportToTxt(i);
-
-        // 댓글을 체크했고, 댓글이 있을 경우 처리
-        if (widget.bComment &&
-            postList!.list[postIdxInPage].commentScore >= 1) exportComment();
-      }
-
-      // 99. 한 페이지 완료 시 작업
-      setState(() => postPageIdx++);
-      postIdxInPage = 0;
-
-      if (postPageIdx-1 == widget.endPage) break;   // or postList.nextYn == 'N'으로 대체 가능 (필드 추가 必)
+    }
+    catch (e)
+    {
+      setState(() => errorStr = e.toString());
+      return;
     }
 
     setState(() => isSaving = false);
   }
 
-  void exportComment()
+  Future<void> exportComment() async
   {
     cmtPageIdx = 1;
     cmtReplyCnt = 0;
@@ -163,8 +208,13 @@ class _SavingScreenState extends State<SavingScreen>
            cmtIdxInPage++, cmtReplyCnt++)
       {
 
+        // 댓글 번호) (레벨) / 닉넴 / 날짜-시간 / 5♥ (12b-3p)
+        await exportText();
+
+        // exportImage(post!.list![mediaIdx].mediaUrl, '$postCnt-$cmtReplyCnt-$mediaIdx');
+
         // 답글이 있을 경우 처리
-        if (cmtList!.list[cmtIdxInPage].commentScore >= 1) exportReply();
+        if (nowComment.commentScore >= 1) exportReply();
       }
 
       if (cmtList!.nextYn == 'N') return;
@@ -173,7 +223,7 @@ class _SavingScreenState extends State<SavingScreen>
     }
   }
 
-  void exportReply()
+  Future<void> exportReply() async
   {
     replyPageIdx = 1;
 
@@ -219,21 +269,62 @@ class _SavingScreenState extends State<SavingScreen>
     }
   }
 
-  Future<void> exportToTxt(int index) async
-  {
-    String url = 'https://testPost.com/$index.jpg';
+  // void saveToFile(String content, int pageNumber) {
+  //   // 10페이지 단위로 파일을 나누는 로직
+  //   int fileIndex = pageNumber ~/ 10;
+  //   File file = File('output_${fileIndex}.txt');
+  //   file.writeAsStringSync(content, mode: FileMode.append);
+  // }
+
+  Future<void> exportText(String text) async {
+    // 파일 경로 지정
+    final file = File('test.txt');
+
     try {
-      final response = await http.get(Uri.parse(url));
-      if (response.statusCode == 200) {
-        final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/$index.jpg');
-        await file.writeAsBytes(response.bodyBytes);
-      } else {
-        throw Exception('Failed to load image $index');
+      // 파일이 존재하는지 확인하고, 파일이 없으면 생성
+      if (!await file.exists()) {
+        await file.create();
       }
+
+      // 파일 끝에 content 추가
+      await file.writeAsString('$text\n', mode: FileMode.append);
+
+      print('Content added to test.txt');
     } catch (e) {
-      debugPrint('Error downloading image $index: $e');
+      // 오류 발생 시 처리
+      print('Error writing to file: $e');
     }
+  }
+
+  // fileName = 글번호-미디어번호 or 글번호-댓글번호-미디어번호
+  Future<void> exportImage(String url, String fileName) async
+  {
+    String extension = getFileExtension(url);
+    if (extension.isNotEmpty) extension = '.$extension';
+
+    url = 'https://$url';
+
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/$fileName$extension');
+      await file.writeAsBytes(response.bodyBytes);
+    } else {
+      throw Exception('$fileName$extension 로드 실패');
+    }
+  }
+
+  String getFileExtension(String url) {
+    // 정규 표현식 패턴: URL의 마지막 확장자를 추출합니다.
+    final RegExp regExp = RegExp(r'\.([a-zA-Z0-9]+)([?#;=]|$)');
+    final match = regExp.firstMatch(url);
+
+    if (match != null && match.group(1) != null) {
+      return match.group(1)!;
+    }
+
+    return ''; // 확장자가 없을 경우 빈 문자열 반환
   }
 
   // ★글이 아닌 페이지 단위로 표시
