@@ -41,7 +41,7 @@ class MyCustomFormState extends State<MyCustomForm> {
 
   int startPage = kStartPage;
   int? endPage;
-  String userCode = '';
+  int userCode = 0;
 
   // Checkboxes state
   bool bMedia       = true;
@@ -151,6 +151,12 @@ class MyCustomFormState extends State<MyCustomForm> {
                 if (value.length < 8) {
                   return '유효한 ID값을 입력해주세요';
                 }
+                int? intValue = int.tryParse(value);
+                if (intValue == null) {
+                  return '숫자 값을 입력해주세요';
+                }
+
+                userCode = intValue;
                 return null;
               },
             ),
@@ -188,10 +194,10 @@ class MyCustomFormState extends State<MyCustomForm> {
                     context,
                     MaterialPageRoute(builder: (context) =>
                       SavingScreen(
-                        startPage:   startPage,
-                        endPage:     endPage,
-                        userCode:    userCode,
-                        bComment:    bComment,
+                        startPage: startPage,
+                        endPage:   endPage,
+                        userCode:  userCode,
+                        bComment:  bComment,
                         bMedia:    bMedia,
                       )
                     ),

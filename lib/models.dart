@@ -18,6 +18,8 @@ String convertReactionScore(int likeScore, int dislikeScore)
           '${dislikeScore != 0 ? '${dislikeScore}p' : ''}';
 }
 
+
+
 String convertLevel(int level) {
   if (level == 0) return '';  // 안전 장치. 애초에 level이 0이면 호출 않고 건너뛸 것 (레벨 출력 X)
 
@@ -78,7 +80,7 @@ class PostListModel {
     );
   }
 
-  static String getJsonUrl(String userCode, int page)
+  static String getJsonUrl(int userCode, int page)
   {
     return
       'https://api.onstove.com/cwms/v2.1/user/41598098/article/list?target_member_no=$userCode'
@@ -101,7 +103,9 @@ class PostPreview {
   final int commentScore;
   final String pollYn;
   final String movieYn;
+
   final int characterLevel; // convertLevel()을 통해 변환해서 사용할 것
+  final String nickname;    // fromJson에서 비유효값은 '알 수 없음'으로 변환
 
   // article_id 앞 2글자가 TR인 경우에만 사용 (외엔 postModel 원본 링크 접근)
   // 접근 시엔 https://를 붙여 사용하기
@@ -124,6 +128,7 @@ class PostPreview {
     required this.pollYn,
     required this.movieYn,
     required this.characterLevel,
+    required this.nickname,
 
     this.mediaThumbnailUrl,
     this.headlineName,
@@ -144,6 +149,7 @@ class PostPreview {
       pollYn: json['attach_summary_info']?['poll_yn'] ?? '',
       movieYn: json['attach_summary_info']?['movie_yn'] ?? '',
       characterLevel: int.tryParse(json['user_info']?['user_game_info']?['character_level'] ?? '0') ?? 0,
+      nickname: (json['user_info']?['nickname'] ?? '') == '' ? '알 수 없음' : json['user_info']?['nickname'],
 
       mediaThumbnailUrl: sanitizeUrl(json['media_thumbnail_url']),
       headlineName: json['headline_info']?['headline_name'],
@@ -275,6 +281,7 @@ class CommentDetail {
   final int likeScore;
   final int dislikeScore;
 
+  final int memberNo;       // myLevel/Name 체크용
   final String nickname;    // fromJson에서 비유효값은 '알 수 없음'으로 변환
   final int characterLevel; // convertLevel()을 통해 변환해서 사용할 것
 
@@ -287,6 +294,7 @@ class CommentDetail {
     required this.createDatetime,
     required this.likeScore,
     required this.dislikeScore,
+    required this.memberNo,
     required this.nickname,
     required this.characterLevel,
     required String content,
@@ -308,6 +316,8 @@ class CommentDetail {
       createDatetime: DateTime.fromMillisecondsSinceEpoch((json['create_datetime'] ?? 0) * 1000),
       likeScore: json['user_interaction_score_info']?['like_score'] ?? 0,
       dislikeScore: json['user_interaction_score_info']?['dislike_score'] ?? 0,
+
+      memberNo: userInfo['member_no'] ?? 0,
       nickname: (userInfo['nickname'] ?? '') == '' ? '알 수 없음' : userInfo['nickname'],
       characterLevel: int.tryParse(userGameInfo['character_level'] ?? '0') ?? 0,
     );

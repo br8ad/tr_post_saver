@@ -21,13 +21,8 @@ import 'models.dart';
 class SavingScreen extends StatefulWidget {
   final int startPage;
   int? endPage;
-  final String userCode;
+  final int userCode;
 
-  // final bool bViewCnt;
-  // final bool bLikeCnt;
-  // final bool bDislikeCnt;
-  // final bool bCommentCnt;
-  // final bool bBoardName;
   final bool bComment;
   final bool bMedia;
 
@@ -36,14 +31,14 @@ class SavingScreen extends StatefulWidget {
     this.endPage,
     required this.userCode,
     this.bComment = true,
-    this.bMedia = false,
+    this.bMedia = true,
   });
 
   @override
-  _SavingScreenState createState() => _SavingScreenState();
+  SavingScreenState createState() => SavingScreenState();
 }
 
-class _SavingScreenState extends State<SavingScreen>
+class SavingScreenState extends State<SavingScreen>
 {
   final fileHandler = FileHandler();
 
@@ -73,7 +68,8 @@ class _SavingScreenState extends State<SavingScreen>
   // -> 댓글/답글 번호는 댓글/답글의 ★누적 (txt 출력 + 이미지 번호에 사용됨)
   // -> 답글 목록은 계속 바뀌니까 getter로 못함! 누적을 시켜야함!
 
-  int recentMyLevel = 0; // 내 레벨은 변경시에만 출력
+  int recentMyLevel = 0;    // 내 레벨은 변경시에만 출력
+  String recentMyName = ''; // 내 닉네임도 변경시에만 출력
 
   PostListModel? postList;
   PostModel? post;
@@ -83,7 +79,6 @@ class _SavingScreenState extends State<SavingScreen>
   PostPreview get nowPostPreview => postList!.list[postIdxInPage];
   CommentDetail get nowComment => cmtList!.list[cmtIdxInPage];
   CommentDetail get nowReply => replyList!.list[replyIdxInPage];
-
 
   Future<void> startSaving() async
   {
@@ -119,7 +114,7 @@ class _SavingScreenState extends State<SavingScreen>
           // - 텍스트 저장
 
           // ※ 번호(0부터). [기타] 제목
-          // (레벨) / 201뷰 / 창작 / 날짜-시간 / 댓5 / 12b-3p / 설문 / 미디어1\n\n
+          // (레벨) / (닉넴) / 201뷰 / 창작 / 날짜-시간 / 댓5 / 12b-3p / 설문 / 미디어1\n\n
           await exportText(
             '※ $postCnt. '
             '${nowPostPreview.headlineName == null ? '' : '[${nowPostPreview.headlineName}] '}'
@@ -127,6 +122,8 @@ class _SavingScreenState extends State<SavingScreen>
 
             '${recentMyLevel == nowPostPreview.characterLevel ? ''
                 : '${convertLevel(recentMyLevel = nowPostPreview.characterLevel)} / '}'
+            '${recentMyName == nowPostPreview.nickname ? ''
+                : '${recentMyName = nowPostPreview.nickname} / '}'
             '${nowPostPreview.viewScore}뷰'
             '${nowPostPreview.boardName.isEmpty ? '' : ' / ${nowPostPreview.boardName}'}'
             ' / ${convertDateTime(nowPostPreview.createDatetime)}'
@@ -208,8 +205,20 @@ class _SavingScreenState extends State<SavingScreen>
            cmtIdxInPage++, cmtReplyCnt++)
       {
 
-        // 댓글 번호) (레벨) / 닉넴 / 날짜-시간 / 5♥ (12b-3p)
-        await exportText();
+        // myName/Level 체크를 위해 code도 갖고와야겟구만 ~ 닉은 바뀔수도 있는거라서~
+        // 댓글번호) (레벨) / 닉넴(본인제외) / 날짜-시간 / (답5) / (12b-3p)
+        await exportText(
+          '$cmtReplyCnt) '
+          '${getUserInfoStr(
+              memberNo: nowComment.memberNo,
+              level: nowComment.characterLevel,
+              name: nowComment.nickname,
+          )}'
+          '${convertDateTime(nowComment.createDatetime)}'
+          '${nowComment.commentScore == 0 ? '' : ' / 답${nowComment.commentScore}'}'
+          '${convertReactionScore(nowComment.likeScore, nowComment.dislikeScore)}'
+          '\n\n'
+        );
 
         // exportImage(post!.list![mediaIdx].mediaUrl, '$postCnt-$cmtReplyCnt-$mediaIdx');
 
@@ -221,6 +230,23 @@ class _SavingScreenState extends State<SavingScreen>
 
       cmtPageIdx++;
     }
+  }
+
+  // 인자 = 댓글에서 사용 (post는 본인임이 확실하니까 사용 X)
+  String getUserInfoStr({int? memberNo, required int level, required String name})
+  {
+    // 타인일 경우
+    if (memberNo != null && memberNo != widget.userCode)
+    {
+      return '${level == 0 ? '' : '${convertLevel(level)} / '}'
+             '$name / ';
+    }
+
+    // 본인일 경우
+    return '${level == 0 || recentMyLevel == level ? ''
+              : '${convertLevel(recentMyLevel = level)} / '}'
+            '${recentMyName == name ? ''
+              : '${recentMyName = name} / '}';
   }
 
   Future<void> exportReply() async
