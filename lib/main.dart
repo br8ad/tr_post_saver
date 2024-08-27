@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:tr_post_saver/saving_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 void main() {
@@ -54,6 +58,28 @@ class MyCustomFormState extends State<MyCustomForm> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    initDirectory();
+  }
+
+  String? directoryPath;
+  String? get textPath => '$directoryPath\\tr_post_saver';
+
+  Future<void> initDirectory() async
+  {
+    final directory = await getApplicationDocumentsDirectory();
+    directoryPath = directory.path;
+
+    // 이미지 경로 생성
+    final textDirectory = Directory(textPath!);
+
+    if (!await textDirectory.exists()) {
+      await textDirectory.create(recursive: true); // recursive: 하위 디렉토리도 생성
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
 
     return Form(
@@ -82,9 +108,29 @@ class MyCustomFormState extends State<MyCustomForm> {
                   scaffoldMessenger.showSnackBar(
                       const SnackBar(content: Text("에러 (새탭 열기 실패)")));
                 }
-              },   // 다일로그 안내 or github 링크 -> 링크가 최신 갱신 할수있긴 하겠다 & 런게 링크는 없어지니까
+              },
               child: const Text(
                 '★ 상세 사항 ★',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFB4B4B4), // 배경색 설정. 기본 보라 = 0xFF6750A4
+                foregroundColor: Colors.white, // 텍스트 색상 설정
+              ),
+              onPressed: () async {
+                if (textPath == null) return;
+
+                final url = Uri.file(textPath!);
+                if (await canLaunchUrl(url)) await launchUrl(url);
+              },
+              child: const Text(
+                '저장 폴더 열기',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
                 ),

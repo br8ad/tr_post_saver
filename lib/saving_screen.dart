@@ -231,7 +231,7 @@ class SavingScreenState extends State<SavingScreen>
           '${convertDateTime(nowComment.createDatetime)}'
           '${nowComment.commentScore == 0 ? '' : ' / 답${nowComment.commentScore}'}'
           '${convertReactionScore(nowComment.likeScore, nowComment.dislikeScore)}'
-          '\n\n'
+          '\n'
           '${nowComment.content}\n\n'
         );
 
@@ -338,11 +338,11 @@ class SavingScreenState extends State<SavingScreen>
       final directory = await getApplicationDocumentsDirectory();
       directoryPath = directory.path;
 
+      // 이미지 경로 생성
       final imageDirectory = Directory(imagePath!);
 
-      // 디렉토리가 존재하지 않으면 생성
       if (!await imageDirectory.exists()) {
-        await imageDirectory.create(recursive: true); // recursive: 하위 디렉토리도 생성
+        await imageDirectory.create(recursive: true); // recursive: 하위 디렉토리도 생성 -> 텍스트 경로까지! -> 근데 main.dart에서 생성할것
       }
     }
     catch (e) {
@@ -354,7 +354,8 @@ class SavingScreenState extends State<SavingScreen>
   // 10페이지 단위로 생성 (ex, 11-20p, (초기값이 27일시)27-30p)
   File? txtFile;
   String? directoryPath;
-  String? get imagePath => '$directoryPath\\사진';   // 윈도우즈 파일 경루 = 역슬래시, 웹 = 슬래시
+  String? get imagePath => '$directoryPath\\tr_post_saver\\사진';   // 윈도우즈 파일 경루 = 역슬래시, 웹 = 슬래시
+  String? get textPath => '$directoryPath\\tr_post_saver';
 
   Future<void> exportText(String text) async
   {

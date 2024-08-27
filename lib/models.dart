@@ -45,10 +45,16 @@ String convertPost(String input) {
   return input.replaceAll(r'\u003C', '<').replaceAll(r'\u003E', '>');
 }
 
+// https:, //, www. 3가지를 제거
 // 영상링크 저장 시엔 그대로, 접근 시엔 https://를 붙여 사용하기
-String? sanitizeUrl(String? url) {
+String? sanitizeUrl(String? url)
+{
   if (url == null) return null;
-  return url.replaceAll(RegExp(r'https?://|www\.'), '');  // https:, //, www. 3가지를 제거
+
+  return url
+      .replaceAll(RegExp(r'^https?:'), '') // 1. Remove 'https:' or 'http:'
+      .replaceAll(RegExp(r'^\/\/'), '')    // 2. Remove '//' if it is at the beginning
+      .replaceAll(RegExp(r'^www\.'), '');  // 3. Remove 'www.' if it is at the beginning
 }
 
 class PostListModel {
@@ -349,6 +355,11 @@ class CommentDetail {
     final imgSrcRegex = RegExp(r'\\u003Cimg src=\\"(.*?)\\".*?\\u003E');
     final imgIdRegex = RegExp(r'\\u003Cimg id=\\"(.*?)\\".*?\\u003E');
     final spanClassRegex = RegExp(r'\\u003Cspan class=\\"(.*?)\\".*?\\/span\\u003E');
+
+    // HTML 엔티티를 실제 문자로 변환 후, 정규 표현식을 수정
+    // final imgSrcRegex = RegExp(r'<img src="(.*?)".*?>');
+    // final imgIdRegex = RegExp(r'<img id="(.*?)".*?>');
+    // final spanClassRegex = RegExp(r'<span class="(.*?)".*?\/span>');
 
     // 1. 이모지 replace
     content = content.replaceAllMapped(imgSrcRegex, (match) {
