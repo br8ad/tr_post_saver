@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import 'models.dart';
 
@@ -426,7 +427,12 @@ class SavingScreenState extends State<SavingScreen>
                 minHeight: 10,
               ),
               ElevatedButton(
-                onPressed: () { },
+                onPressed: () async {
+                  if (directoryPath == null) return;
+
+                  final url = Uri.file(directoryPath!);
+                  if (await canLaunchUrl(url)) await launchUrl(url);
+                },
                 child: const Text('저장 폴더 열기'),
               ),
             ],
