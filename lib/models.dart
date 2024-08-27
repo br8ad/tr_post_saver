@@ -147,7 +147,7 @@ class PostPreview {
       title: convertPost(json['title'] ?? ''),
       summary: convertPost(json['summary'] ?? ''),
       mediaCount: json['media_count'] ?? 0,
-      createDatetime: DateTime.fromMillisecondsSinceEpoch((json['create_datetime'] ?? 0) * 1000),
+      createDatetime: DateTime.fromMillisecondsSinceEpoch((json['create_datetime'] ?? 0)),
       viewScore: json['user_interaction_score_info']?['view_score'] ?? 0,
       likeScore: json['user_interaction_score_info']?['like_score'] ?? 0,
       dislikeScore: json['user_interaction_score_info']?['dislike_score'] ?? 0,
@@ -319,7 +319,7 @@ class CommentDetail {
       commentScore: json['user_interaction_score_info']?['comment_score'] ?? 0,
 
       content: json['content'] ?? '',
-      createDatetime: DateTime.fromMillisecondsSinceEpoch((json['create_datetime'] ?? 0) * 1000),
+      createDatetime: DateTime.fromMillisecondsSinceEpoch((json['create_datetime'] ?? 0)),
       likeScore: json['user_interaction_score_info']?['like_score'] ?? 0,
       dislikeScore: json['user_interaction_score_info']?['dislike_score'] ?? 0,
 

@@ -236,11 +236,14 @@ class SavingScreenState extends State<SavingScreen>
         );
 
         // 이미지 저장
-        int imageIdx = 0;
-        for (var nowImage in nowComment.imageUrls)
+        if (widget.bMedia)
         {
-          await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
-          imageIdx++;
+          int imageIdx = 0;
+          for (var nowImage in nowComment.imageUrls)
+          {
+            await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
+            imageIdx++;
+          }
         }
 
         // 답글이 있을 경우 처리
@@ -285,11 +288,14 @@ class SavingScreenState extends State<SavingScreen>
         );
 
         // 이미지 저장
-        int imageIdx = 0;
-        for (var nowImage in nowReply.imageUrls)
+        if (widget.bMedia)
         {
-          await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
-          imageIdx++;
+          int imageIdx = 0;
+          for (var nowImage in nowReply.imageUrls)
+          {
+            await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
+            imageIdx++;
+          }
         }
       }
 
