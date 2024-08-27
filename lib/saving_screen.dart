@@ -41,8 +41,6 @@ class SavingScreen extends StatefulWidget {
 
 class SavingScreenState extends State<SavingScreen>
 {
-  final fileHandler = FileHandler();
-
   bool isSaving = false;
   String? errorStr;
 
