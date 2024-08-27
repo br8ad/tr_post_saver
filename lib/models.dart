@@ -356,7 +356,7 @@ class CommentDetail {
 
     // Iterate through the map and replace each pattern
     replacements.forEach((pattern, replacement) {
-      content = content.replaceAll(pattern, replacement);
+      content = content!.replaceAll(pattern, replacement);
     });
 
     // 조건에 따라 반복문을 통해 특정 문자열을 변환
@@ -371,25 +371,25 @@ class CommentDetail {
     // final spanClassRegex = RegExp(r'<span class="(.*?)".*?\/span>');
 
     // 1. 이모지 replace
-    content = content.replaceAllMapped(imgSrcRegex, (match) {
+    content = content!.replaceAllMapped(imgSrcRegex, (match) {
       String url = match.group(1) ?? '';
       return ' (이모지 ${CommentDetail._getEmojiStr(url)}) ';
     });
 
     // 2. 사진 replace
-    content = content.replaceAllMapped(imgIdRegex, (match) {
+    content = content!.replaceAllMapped(imgIdRegex, (match) {
       String url = match.group(1) ?? '';
       imageUrls.add(sanitizeUrl(url)!);
       return ' (사진) ';
     });
 
     // 3. 영상링크 replace
-    content = content.replaceAllMapped(spanClassRegex, (match) {
+    content = content!.replaceAllMapped(spanClassRegex, (match) {
       String url = match.group(1) ?? '';
       return ' (영상 ${sanitizeUrl(url)}) ';
     });
 
-    return content.trim();
+    return content!.trim();
   }
 
   // ex, '\"https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/application_no/10009/stove-default-emoji/dre/2.png\"';
