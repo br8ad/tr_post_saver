@@ -95,7 +95,7 @@ class SavingScreenState extends State<SavingScreen>
         //    page%10이 1일 경우 txt 생성
         if (txtFile == null || postPageIdx % 10 == 1)
         {
-         txtFile = File('$directoryPath\\$postPageIdx-${roundUpToTens(postPageIdx)}p.txt');
+         txtFile = File('$textPath\\$postPageIdx-${roundUpToTens(postPageIdx)}p.txt');
          await txtFile?.create();
         }
 
@@ -427,9 +427,9 @@ class SavingScreenState extends State<SavingScreen>
               ),
               ElevatedButton(
                 onPressed: () async {
-                  if (directoryPath == null) return;
+                  if (textPath == null) return;
 
-                  final url = Uri.file(directoryPath!);
+                  final url = Uri.file(textPath!);
                   if (await canLaunchUrl(url)) await launchUrl(url);
                 },
                 child: const Text('저장 폴더 열기'),
