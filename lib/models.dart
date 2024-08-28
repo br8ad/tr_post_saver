@@ -283,10 +283,10 @@ class CommentListModel {
   }
   // LATEST = 최신순
   // 사용하는 측에서 역순(4~0) 저장 -> 답글은 이래야 등록순이 됨
-  static String getReplyJsonUrl(String commentId, int page)
+  static String getReplyJsonUrl(String articleId, String commentId, int page)
   {
     return
-      'https://api.onstove.com/cwms/v1.0/article/9814941/comment/$commentId'
+      'https://api.onstove.com/cwms/v1.0/article/$articleId/comment/$commentId'
       '/list?size=5&page=$page&sort_type_code=LATEST&interaction_type_code=LIKE,+DISLIKE&request_id=CM';
   }
 }

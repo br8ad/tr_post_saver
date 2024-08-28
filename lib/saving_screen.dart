@@ -269,7 +269,7 @@ class SavingScreenState extends State<SavingScreen>
     while (true)
     {
       replyList = await fetchModel<CommentListModel>(
-        url: CommentListModel.getReplyJsonUrl(nowComment.commentId, replyPageIdx),
+        url: CommentListModel.getReplyJsonUrl(nowPostPreview.articleId, nowComment.commentId, replyPageIdx),
         fromJson: (json) => CommentListModel.fromJson(json),
       );
 
