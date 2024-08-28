@@ -101,7 +101,7 @@ class MyCustomFormState extends State<MyCustomForm> {
               onPressed: () async {
                 final scaffoldMessenger = ScaffoldMessenger.of(context);
                 try {
-                  await launchUrlString('https://github.com/br8ad/tr_post_saver/blob/main/README.md', webOnlyWindowName: '_blank');
+                  await launchUrlString('https://github.com/br8ad/tr_post_saver/blob/main/README.md#-상세-사항-', webOnlyWindowName: '_blank');
                 }
                 catch (e) {
                   debugPrint(e.toString());
