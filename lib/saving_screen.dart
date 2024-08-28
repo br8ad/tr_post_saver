@@ -9,16 +9,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'models.dart';
 
-// 뒤로 가기는 없게할까? -> 이전 화면을 pop해버리면 컨트롤러도 dispose해버리면 되니까 훔
-// -> 그게 더 힘드네. popAndPushNamed인데, name 넣기도 귀찮고. 메인화면이 pop되는거라 문제되기도할듯
-// dispose 그냥 버려~ 아니면. 그거있잖아 맞다
-// 화면 넘어갈때 dispose, 돌아올떄 초기화 하면되고. mount였나 -> 아님 걍 null일때 초기화하는식
-
-// ★ 끝나도 뒤로 못 감. 걍 완료 안내만 하고 끝!
-// 예약 프로그램/컴퓨터 종료 버튼을 넣으면 ㄱㅊ겠네 (GPT 참고) -> 테스트 해보고 오래 걸리면 그렇게해
-//   -> (비)정상 완료 시 작업
-// -> 근데 중간중간 에러 게시글 / 인터넷 에러 / 파일명 중복 / 용량 에러 어쩔지 -> 에러로 종료돼도 종료
-// -> 음.. .근데 cpp파일 건드렸다가 낭패볼거같아서.. 그냥 그거까진 말래요 ㅡㅜㅡ
 class SavingScreen extends StatefulWidget {
   final int startPage;
   int? endPage;
@@ -27,7 +17,7 @@ class SavingScreen extends StatefulWidget {
   final bool bComment;
   final bool bMedia;
 
-  SavingScreen({
+  SavingScreen({super.key,
     required this.startPage,
     this.endPage,
     required this.userCode,
@@ -116,17 +106,18 @@ class SavingScreenState extends State<SavingScreen>
 
         // 3. 본격 txt에 게시글 저장 작업
 
-        // n페 출력
-
         for (postIdxInPage = 0;
              postIdxInPage < postList!.list.length;
              postIdxInPage++)
         {
           // - 텍스트 저장
 
+          // ────────────n페
           // ※ 번호(0부터). [기타] 제목
           // (레벨) / (닉넴) / 201뷰 / 창작 / 날짜-시간 / 댓5 / 12b-3p / 설문 / 미디어1\n\n
           await exportText(
+            '────────────'
+            '${postIdxInPage != 0 ? '──\n' : '$postPageIdx페\n'}'
             '※ $postCnt. '
             '${nowPostPreview.headlineName == null ? '' : '[${nowPostPreview.headlineName}] '}'
             '${nowPostPreview.title}\n'
@@ -336,11 +327,17 @@ class SavingScreenState extends State<SavingScreen>
   {
     final response = await http.get(Uri.parse(url));
 
-    if (response.statusCode == 200) {
-      // 서버가 OK 응답을 반환하면 JSON을 파싱합니다.
-      return fromJson(json.decode(response.body));
-    } else {
-      // 서버가 OK 응답을 반환하지 않으면 예외를 던집니다.
+    // 서버가 OK응답(200)을 반환하면 JSON을 파싱합니다.
+    if (response.statusCode == 200)
+    {
+      // body 대신 bodyBytes를 사용하여 바이너리 데이터를 받아와서 UTF-8로 디코딩
+      final decodedString = utf8.decode(response.bodyBytes);
+      // JSON 파싱
+      return fromJson(json.decode(decodedString));
+    }
+    else
+    {
+      // 서버가 OK응답을 반환하지 않으면 예외를 던집니다.
       throw Exception('페이지 로딩 실패');
     }
   }

@@ -1,6 +1,9 @@
 import 'dart:collection';
 import 'package:intl/intl.dart'; // 날짜 변환을 위해 필요
 
+import 'package:html/parser.dart' show parse;
+import 'package:html/dom.dart' as dom;
+
 //   final jsonData = jsonDecode(jsonString);
 //   final postList = PostListModel.fromJson(jsonData);
 //
@@ -17,8 +20,6 @@ String convertReactionScore(int likeScore, int dislikeScore)
           '${likeScore != 0 && dislikeScore != 0 ? '-' : ''}'
           '${dislikeScore != 0 ? '${dislikeScore}p' : ''}';
 }
-
-
 
 String convertLevel(int level) {
   if (level == 0) return '';  // 안전 장치. 애초에 level이 0이면 호출 않고 건너뛸 것 (레벨 출력 X)
@@ -40,10 +41,10 @@ String convertLevel(int level) {
   return '$colorName$shoeName';
 }
 
-String convertPost(String input) {
-  // Replacing \u003C with < and \u003E with >
-  return input.replaceAll(r'\u003C', '<').replaceAll(r'\u003E', '>');
-}
+// String convertPost(String input) {
+//   // Replacing \u003C with < and \u003E with >
+//   return input.replaceAll(r'\u003C', '<').replaceAll(r'\u003E', '>');
+// }
 
 // https:, //, www. 3가지를 제거
 // 영상링크 저장 시엔 그대로, 접근 시엔 https://를 붙여 사용하기
@@ -144,8 +145,8 @@ class PostPreview {
     return PostPreview(
       boardSeq: json['board_seq'] ?? 0,
       articleId: json['article_id'] ?? '',
-      title: convertPost(json['title'] ?? ''),
-      summary: convertPost(json['summary'] ?? ''),
+      title: json['title'] ?? '',
+      summary: json['summary'] ?? '',
       mediaCount: json['media_count'] ?? 0,
       createDatetime: DateTime.fromMillisecondsSinceEpoch((json['create_datetime'] ?? 0)),
       viewScore: json['user_interaction_score_info']?['view_score'] ?? 0,
@@ -308,7 +309,7 @@ class CommentDetail {
     required String? content,
   })
   {
-    this.content = convertContent(content);
+    this.content = parseAndReplaceHtml(content);
   }
 
   // JSON 데이터를 CommentDetail 객체로 변환하는 factory constructor
@@ -331,65 +332,86 @@ class CommentDetail {
     );
   }
 
-  // content 전환 및 imageUrls 초기화
-  String? convertContent(String? content) {
-    if (content == null) return null;
-    if (content.isEmpty) return '';
+  String? parseAndReplaceHtml(String? html)
+  {
+    if (html == null) return null;
+    if (html.isEmpty) return '';
 
-    // LinkedHashMap을 사용하여 순서 보장
-    final Map<String, String> replacements = LinkedHashMap.from({
-      // 유니코드 이스케이프
-      // -> html 엔티티와 다르게 이건 자동 변환 된대 (ex, <와 \u003C가 같은값)
-      r'\u003C/p\u003E\u003Cp\u003E': ' ',
-      r'\u003Cp\u003E': '',
-      r'\u003C/p\u003E': '',
-      r'\u003Cbr\u003E': '',
-      // html 엔티티
-      r'&nbsp;': '',
-      r'&lt;': '<',
-      r'&gt;': '>',
-      r'&amp;': '&',
-      r'\"': '“',
-    });
+    final document = parse(html);
+    var buffer = StringBuffer();
 
-    // html엔티티를 알아서 변환한대니까
+    // 모든 노드를 순회하며
+    for (var node in document.body!.nodes)
+    {
+      if (node is dom.Element)
+      {
+        // <img> 태그 처리
+        if (node.localName == 'img')
+        {
+          final src = node.attributes['src'] ?? '';
 
-    // Iterate through the map and replace each pattern
-    replacements.forEach((pattern, replacement) {
-      content = content!.replaceAll(pattern, replacement);
-    });
+          // <img id> 태그의 경우
+          if (node.attributes.containsKey('id'))
+          {
+            imageUrls.add(sanitizeUrl(src)!);
+            buffer.write('(사진)');
+          }
+          // 외의 경우 (img src)
+          else
+          {
+            buffer.write('(이모지 ${_getEmojiStr(src)})');
+          }
+        }
+        // <span> 태그 처리
+        else if (node.localName == 'span')
+        {
+          final iframe = node.querySelector('iframe');
+          // <span> 태그 내 <iframe>의 경우
+          if (iframe != null)
+          {
+            final src = iframe.attributes['src'] ?? '';
+            buffer.write('(영상 ${sanitizeMovieUrl(src)})');
+          }
+        }
+        else
+        {
+          // Element node에도 텍스트가 포함될 수 있습니다
+          // (ex, <p> 또는 <div> 같은 요소 내부의 텍스트)
+          buffer.write(node.text);
+        }
+      }
+      // Text node는 그대로 누적
+      else if (node is dom.Text)
+      {
+        buffer.write(node.text);
+      }
+    }
 
-    // 조건에 따라 반복문을 통해 특정 문자열을 변환
-    final imgSrcRegex = RegExp(r'\\u003Cimg src=\\"(.*?)\\".*?\\u003E');
-    final imgIdRegex = RegExp(r'\\u003Cimg id=\\"(.*?)\\".*?\\u003E');
-    final spanClassRegex = RegExp(r'\\u003Cspan class=\\"(.*?)\\".*?\\/span\\u003E');
+    // 만약 태그(<>)가 없는 일반 문자열만 있는 경우, 입력값을 반환
+    if (buffer.isEmpty) return html;
 
-    // html_parser를 통해 HTML 엔티티가 변환됐다면 아래와 같을것.
-    // -> 근데 변환을 하게되면 <과 \u003C가 구분 불가
-    // final imgSrcRegex = RegExp(r'<img src="(.*?)".*?>');
-    // final imgIdRegex = RegExp(r'<img id="(.*?)".*?>');
-    // final spanClassRegex = RegExp(r'<span class="(.*?)".*?\/span>');
+    return buffer.toString();
+  }
 
-    // 1. 이모지 replace
-    content = content!.replaceAllMapped(imgSrcRegex, (match) {
-      String url = match.group(1) ?? '';
-      return ' (이모지 ${CommentDetail._getEmojiStr(url)}) ';
-    });
+  String sanitizeMovieUrl(String url)
+  {
+    url = sanitizeUrl(url)!;
 
-    // 2. 사진 replace
-    content = content!.replaceAllMapped(imgIdRegex, (match) {
-      String url = match.group(1) ?? '';
-      imageUrls.add(sanitizeUrl(url)!);
-      return ' (사진) ';
-    });
+    // URL에서 '?' 이후의 모든 쿼리 파라미터를 분리합니다.
+    final int queryStartIndex = url.indexOf('?');
+    if (queryStartIndex == -1) return url; // 쿼리 파라미터가 없는 경우 원본 URL을 반환합니다.
 
-    // 3. 영상링크 replace
-    content = content!.replaceAllMapped(spanClassRegex, (match) {
-      String url = match.group(1) ?? '';
-      return ' (영상 ${sanitizeUrl(url)}) ';
-    });
+    final String baseUrl = url.substring(0, queryStartIndex);
+    final String query = url.substring(queryStartIndex + 1);
 
-    return content!.trim();
+    // 쿼리 파라미터에서 'modestbranding' 파라미터와 그 이후를 제거합니다.
+    final RegExp modestbrandingRegex = RegExp(r'modestbranding=[^&]*&?.*');
+    final String cleanedQuery = query.replaceFirst(modestbrandingRegex, '');
+
+    // '&'로 시작하는 쿼리 파라미터가 남을 경우 '&'를 제거합니다.
+    final String finalQuery = cleanedQuery.replaceFirst(RegExp(r'^&'), '');
+
+    return finalQuery.isEmpty ? baseUrl : '$baseUrl?$finalQuery';
   }
 
   // ex, '\"https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/application_no/10009/stove-default-emoji/dre/2.png\"';
@@ -415,28 +437,3 @@ class CommentDetail {
     return '$pathWithoutExtension/$lastPart';
   }
 }
-
-// https://api.onstove.com/cwms/v1.0/article/9814941/comment/75614618/list?size=5&page=1&sort_type_code=LATEST&interaction_type_code=LIKE,+DISLIKE&request_id=CM
-
-// ★LATEST로 해놓고
-// 역순으로 저장하면 되겠네 (4 3 2 1 0번) (page는 순서대로 맞음)
-// 근데 번호는 0 1 2 3 4 돼야할거니까 (댓글/답글 번호 = 누적 댓글+답글 번호)
-// nowReplyinPage 자체는 0 1 2 3 4지만
-// 저장하는쪽에서 (4 - nowReplyinPage) 해서 써야할둣 + 누적
-//
-// 아니면 create순 일 경우엔
-// 마지막 page부터 보는 대신에
-// list는 역순아니네
-//
-// 뭐가 됐든 둘중하나는 역순으로 하는건데
-// 걍 list를 역순하지 모 -> ㅇㅇ LATEST가 덜 복잡한듯. 리스트는 size 5로 고정이니까! page역순이면 /5해야함
-//
-// 그리고 replyPage도 내부상 필요는함
-// 근데 굳이 출력은 필요없을듯 글목록도 아니고
-// 글처럼 일반적으로 페이지 많지 않으니까
-//
-// 얘도 nowReplyNum을 getter로 쓰면되겠네
-//
-// 아니면 리스트 자체를 역순으로 가져오는것도 방법이구. 간단하게 reverse할수있나? 근데 그것도 뒤집는거니깐~
-
-// static const int kMaxListSize = 5;
