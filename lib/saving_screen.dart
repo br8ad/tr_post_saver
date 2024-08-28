@@ -297,7 +297,7 @@ class SavingScreenState extends State<SavingScreen>
               )}'
               '${convertDateTime(nowReply.createDatetime)}'
               '${convertReactionScore(nowReply.likeScore, nowReply.dislikeScore)}'
-              '\n\n'
+              '\n'
               '${nowReply.content}\n\n'
           );
 
@@ -314,7 +314,11 @@ class SavingScreenState extends State<SavingScreen>
         }
       }
 
-      if (replyList!.nextYn == 'N') return;
+      if (replyList!.nextYn == 'N')
+      {
+        cmtReplyCnt--;
+        return;
+      }
 
       replyPageIdx++;
     }
