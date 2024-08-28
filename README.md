@@ -1,9 +1,10 @@
 # 테런 게시글 저장기 (by 꾸밈)
 ![실행 화면](introduce.png)
-본인의 테런 게시글들을 간단 txt로 변환 저장하는 프로그램입니다 (+사진)
-(STOVE 테런 커뮤니티 종료 전 까지 사용 가능 (24/12/11))
 
-- [다운로드 링크](https://drive.google.com/file/d/1FVaNYZlEsH_YDkrlaYCssYKkkwVWyr1I/view)
+본인의 테런 게시글들을 간단 txt로 변환 저장하는 프로그램입니다 (+사진)
+\n(STOVE 테런 커뮤니티 종료 전 까지 사용 가능 (24/12/11))
+
+- [★ 다운로드 링크 ★](https://drive.google.com/file/d/1FVaNYZlEsH_YDkrlaYCssYKkkwVWyr1I/view)
 - [바이러스 검사 결과](https://www.virustotal.com/gui/file/ca4ef7f28fa76880167fd20c2c7bdb608ab5b5c6b7c35da9987348a67bcd6788)
 
 ## ★ 상세 사항 ★
