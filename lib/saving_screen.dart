@@ -432,6 +432,7 @@ class SavingScreenState extends State<SavingScreen>
     return Scaffold(
       appBar: AppBar(
         title: const Text('테런 게시글 저장기 (by 꾸밈)'),
+        automaticallyImplyLeading: false, // 뒤로가기 버튼 제거
       ),
       body: errorStr != null ? Center(child: Text('에러 : $errorStr', style: const TextStyle(fontSize: 24))) :
         widget.endPage == null ? const Center(child: CircularProgressIndicator()) :
