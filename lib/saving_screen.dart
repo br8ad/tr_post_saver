@@ -217,6 +217,7 @@ class SavingScreenState extends State<SavingScreen>
           await exportText(
             'x) 삭제됨 / ${nowComment.createDatetime}'
             '${nowComment.commentScore == 0 ? '' : ' / 답${nowComment.commentScore}'}'
+            '\n\n'
           );
           cmtReplyCnt--;
         }
@@ -268,7 +269,7 @@ class SavingScreenState extends State<SavingScreen>
     while (true)
     {
       replyList = await fetchModel<CommentListModel>(
-        url: CommentListModel.getReplyJsonUrl(cmtList!.list[cmtIdxInPage].commentId, replyPageIdx),
+        url: CommentListModel.getReplyJsonUrl(nowComment.commentId, replyPageIdx),
         fromJson: (json) => CommentListModel.fromJson(json),
       );
 
@@ -276,11 +277,10 @@ class SavingScreenState extends State<SavingScreen>
            replyIdxInPage >= 0;
            replyIdxInPage--, cmtReplyCnt++)
       {
-
         // 삭제답글일 경우
-        if (nowComment.isDeleted)
+        if (nowReply.isDeleted)
         {
-          await exportText('-> x) 삭제됨 / ${nowComment.createDatetime}');
+          await exportText('-> x) 삭제됨 / ${nowReply.createDatetime}\n\n');
           cmtReplyCnt--;
         }
         // 정상답글일 경우

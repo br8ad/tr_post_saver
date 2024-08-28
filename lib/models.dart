@@ -2,7 +2,7 @@ import 'dart:collection';
 import 'package:intl/intl.dart'; // 날짜 변환을 위해 필요
 
 import 'package:html/parser.dart' show parse;
-import 'package:html/dom.dart' as dom;
+import 'package:html/dom.dart';
 
 //   final jsonData = jsonDecode(jsonString);
 //   final postList = PostListModel.fromJson(jsonData);
@@ -56,6 +56,15 @@ String? sanitizeUrl(String? url)
       .replaceAll(RegExp(r'^https?:'), '') // 1. Remove 'https:' or 'http:'
       .replaceAll(RegExp(r'^\/\/'), '')    // 2. Remove '//' if it is at the beginning
       .replaceAll(RegExp(r'^www\.'), '');  // 3. Remove 'www.' if it is at the beginning
+}
+
+String sanitizeMovieUrl(String url)
+{
+  url = sanitizeUrl(url)!;
+
+  // URL에서 '?' 이후의 모든 쿼리 파라미터를 분리합니다.
+  final int queryStartIndex = url.indexOf('?');
+  return queryStartIndex == -1 ? url : url.substring(0, queryStartIndex);
 }
 
 class PostListModel {
@@ -222,12 +231,17 @@ class PostModel {
 
 class PostMedia {
   final String mediaTypeCode; // IMAGE or MOVIE. 혹시 다른값이 온다면 무작업
-  final String mediaUrl;     // 영상링크 저장 시엔 그대로, 접근 시엔 https://를 붙여 사용하기
+  late final String mediaUrl;     // 영상링크 저장 시엔 그대로, 접근 시엔 https://를 붙여 사용하기
 
   PostMedia({
     required this.mediaTypeCode,
-    required this.mediaUrl,
-  });
+    required String mediaUrl,
+  })
+  {
+    this.mediaUrl = mediaTypeCode == 'MOVIE'
+        ? sanitizeMovieUrl(mediaUrl)
+        : sanitizeUrl(mediaUrl)!;
+  }
 
   // JSON 데이터를 객체로 변환
   factory PostMedia.fromJson(Map<String, dynamic> json) {
@@ -338,84 +352,53 @@ class CommentDetail {
     if (html.isEmpty) return '';
 
     final document = parse(html);
-    var buffer = StringBuffer();
+    final buffer = StringBuffer();
 
-    // 모든 노드를 순회하며
-    for (var node in document.body!.nodes)
-    {
-      if (node is dom.Element)
-      {
-        // <img> 태그 처리
-        if (node.localName == 'img')
-        {
-          final src = node.attributes['src'] ?? '';
-
-          // <img id> 태그의 경우
-          if (node.attributes.containsKey('id'))
-          {
+    // Helper function to handle different node types
+    void processNode(Node node) {
+      if (node is Element) {
+        if (node.localName == 'img') {
+          final src = node.attributes['src'];
+          final classAttr = node.attributes['class'];
+          if (src != null && classAttr != null && classAttr.contains('js-is-emoji')) {
+            // 임티인 경우
+            buffer.write('(임티 ${_getEmojiStr(src)})');
+          } else if (src != null) {
+            // 일반 이미지의 경우
             imageUrls.add(sanitizeUrl(src)!);
             buffer.write('(사진)');
           }
-          // 외의 경우 (img src)
-          else
-          {
-            buffer.write('(이모지 ${_getEmojiStr(src)})');
+        } else if (node.localName == 'span' && node.children.isNotEmpty) {
+          // Optional Chaining을 사용하여 iframe을 안전하게 가져옴
+          final iframe = node.children.where((child) => child.localName == 'iframe').firstOrNull;
+          if (iframe != null) {
+            final movieUrl = iframe.attributes['src'];
+            if (movieUrl != null) {
+              buffer.write('(영상 ${sanitizeMovieUrl(movieUrl)})');
+            }
+          }
+        } else {
+          // 자식 노드가 있으면 재귀적으로 처리
+          for (final child in node.nodes) {
+            processNode(child);
           }
         }
-        // <span> 태그 처리
-        else if (node.localName == 'span')
-        {
-          final iframe = node.querySelector('iframe');
-          // <span> 태그 내 <iframe>의 경우
-          if (iframe != null)
-          {
-            final src = iframe.attributes['src'] ?? '';
-            buffer.write('(영상 ${sanitizeMovieUrl(src)})');
-          }
-        }
-        else
-        {
-          // Element node에도 텍스트가 포함될 수 있습니다
-          // (ex, <p> 또는 <div> 같은 요소 내부의 텍스트)
-          buffer.write(node.text);
-        }
-      }
-      // Text node는 그대로 누적
-      else if (node is dom.Text)
-      {
+      } else {
+        // 텍스트 누적
         buffer.write(node.text);
       }
     }
 
-    // 만약 태그(<>)가 없는 일반 문자열만 있는 경우, 입력값을 반환
-    if (buffer.isEmpty) return html;
+    // 문서의 모든 자식 노드 처리
+    for (final node in document.body!.nodes) {
+      processNode(node);
+    }
 
     return buffer.toString();
   }
 
-  String sanitizeMovieUrl(String url)
-  {
-    url = sanitizeUrl(url)!;
-
-    // URL에서 '?' 이후의 모든 쿼리 파라미터를 분리합니다.
-    final int queryStartIndex = url.indexOf('?');
-    if (queryStartIndex == -1) return url; // 쿼리 파라미터가 없는 경우 원본 URL을 반환합니다.
-
-    final String baseUrl = url.substring(0, queryStartIndex);
-    final String query = url.substring(queryStartIndex + 1);
-
-    // 쿼리 파라미터에서 'modestbranding' 파라미터와 그 이후를 제거합니다.
-    final RegExp modestbrandingRegex = RegExp(r'modestbranding=[^&]*&?.*');
-    final String cleanedQuery = query.replaceFirst(modestbrandingRegex, '');
-
-    // '&'로 시작하는 쿼리 파라미터가 남을 경우 '&'를 제거합니다.
-    final String finalQuery = cleanedQuery.replaceFirst(RegExp(r'^&'), '');
-
-    return finalQuery.isEmpty ? baseUrl : '$baseUrl?$finalQuery';
-  }
-
   // ex, '\"https://d2x8kymwjom7h7.cloudfront.net/live/application_no/10009/application_no/10009/stove-default-emoji/dre/2.png\"';
-  //    -> (이모지) dre/2
+  //    -> (임티) dre/2
   static String _getEmojiStr(String input) {  // extract
     // 입력 문자열에서 따옴표 제거
     final cleanedInput = input.replaceAll('"', '');
