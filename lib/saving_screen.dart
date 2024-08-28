@@ -1,6 +1,6 @@
 import 'dart:convert';  // JSON 데이터를 파싱하기 위해 필요
 import 'dart:io';
-
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -81,27 +81,39 @@ class SavingScreenState extends State<SavingScreen>
 
       while (true)
       {
-        // 0. txt가 null이거나
-        //    page%10이 1일 경우 txt 생성
-        if (txtFile == null || postPageIdx % 10 == 1)
-        {
-         txtFile = File('$textPath\\$postPageIdx-${roundUpToTens(postPageIdx)}p.txt');
-         await txtFile?.create();
-        }
-
-        // 1. 불러옴
+        // 0. 불러옴
         postList = await fetchModel<PostListModel>(
           url: PostListModel.getJsonUrl(widget.userCode, postPageIdx),
           fromJson: (json) => PostListModel.fromJson(json),
         );
 
-        // 1-1. total이 0일 경우 에러 처리
+        // total이 0일 경우 에러 처리
         if (postList?.total == 0) throw '잘못된 페이지 참조';
 
-        // 2. (최초 1회) endPage 미설정 시 초기화
+        // 1. (최초 1회) endPage 미설정 시 초기화
         if (widget.endPage == null)
         {
           setState(() => widget.endPage = (postList!.total / PostListModel.kMaxListSize).ceil());
+        }
+
+        // 2. txt가 null이거나
+        //    page%10이 1일 경우 txt 생성
+        if (txtFile == null || postPageIdx % 10 == 1)
+        {
+          txtFile = File(
+              '$textPath\\$postPageIdx-'
+              '${min<int>(roundUpToTens(postPageIdx),widget.endPage!)}p.txt'
+          );
+
+          // 파일 생성 (존재 시 백지화)
+          if (await txtFile!.exists())
+          {
+            await txtFile?.writeAsString('');
+          }
+          else
+          {
+            await txtFile?.create();
+          }
         }
 
         // 3. 본격 txt에 게시글 저장 작업
@@ -454,7 +466,7 @@ class SavingScreenState extends State<SavingScreen>
               ),
               const SizedBox(height: 20),
               LinearProgressIndicator(
-                value: postPageIdx / widget.endPage!,
+                value: (postPageIdx - widget.startPage +1) / (widget.endPage! - widget.startPage +1),
                 minHeight: 10,
               ),
               ElevatedButton(
