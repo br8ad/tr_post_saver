@@ -4,9 +4,9 @@
 본인의 테런 게시글들을 간단 txt로 변환 저장하는 프로그램입니다 (+사진)
 <br>(STOVE 테런 커뮤니티 종료 전 까지 사용 가능 (24/12/11))
 
-- **[★ 다운로드 링크 ★](https://drive.google.com/file/d/1kyzFBn_66mjIoIdpiZLsrRa4yu_Hj2hO/view)**
+- **[★ 다운로드 링크 ★](https://drive.google.com/file/d/19C5Pg4-BwwJZhIfStCgmmezXiK6t03Te/view)**
 
-- **[바이러스 검사 결과](https://www.virustotal.com/gui/file/ca4ef7f28fa76880167fd20c2c7bdb608ab5b5c6b7c35da9987348a67bcd6788)**
+- **[바이러스 검사 결과](https://www.virustotal.com/gui/file/9cc5966de25a17154d95d50f5e12e907ea08e2d56894c7c7ccd6a8717c12afee)**
 
 ## ★ 상세 사항 ★
 - **저장 중엔 글 작성/삭제를 피해주세요.**
