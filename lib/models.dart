@@ -99,7 +99,7 @@ class PostListModel {
   static String getJsonUrl(int userCode, int page)
   {
     return
-      'https://api.onstove.com/cwms/v2.1/user/41598098/article/list?target_member_no=$userCode'
+      'https://api.onstove.com/cwms/v2.1/user/$userCode/article/list?target_member_no=$userCode'
       '&target_seq=86&activity_type_code=ARTICLE&content_yn=Y&summary_yn=Y&sort_type_code=LATEST'
       '&interaction_type_code=LIKE,+DISLIKE,+VIEW,+COMMENT&request_id=CM&page=$page&size=24';
       // LIKE,+VIEW,+COMMENT 에 DISLIKE를 추가했더니 항목이 생겼다! (토론게시판->PostModel 접근이 필요없어짐!)
