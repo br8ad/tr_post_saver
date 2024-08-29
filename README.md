@@ -13,9 +13,9 @@
 <br>(글이 밀려서 중복 저장되며, 추가된 페이지는 저장되지 않습니다.)
 
 - (정상)실행되지 않는 경우
-1. (낯선 파일이라) 백신에서 차단하진 않았는지 확인 후 예외 설정
-2. exe파일 외에 'dll파일2개, data폴더'가 동일 경로에 있는지 확인 (zip에 동봉)
-3. [C++ Redistributable(재배포 가능) 패키지 설치](https://learn.microsoft.com/ko-kr/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version)
+<br>1. (낯선 파일이라) 백신에서 차단하진 않았는지 확인 후 예외 설정
+<br>2. exe파일 외에 'dll파일2개, data폴더'가 동일 경로에 있는지 확인 (zip에 동봉)
+<br>3. [C++ Redistributable(재배포 가능) 패키지 설치](https://learn.microsoft.com/ko-kr/cpp/windows/latest-supported-vc-redist?view=msvc-170#latest-microsoft-visual-c-redistributable-version)
 
 - 첨부영상을 백업하고 싶으시면 (★커뮤니티 종료 전에)
 <br>txt에서 '(영상 v.'을 검색하면 나오는
