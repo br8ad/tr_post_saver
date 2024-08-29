@@ -7,7 +7,7 @@
 - **[★ 다운로드 링크 ★](https://drive.google.com/file/d/1kyzFBn_66mjIoIdpiZLsrRa4yu_Hj2hO/view)**
 
 - **[바이러스 검사 결과](https://www.virustotal.com/gui/file/ca4ef7f28fa76880167fd20c2c7bdb608ab5b5c6b7c35da9987348a67bcd6788)**
-
+<br>
 
 ## ★ 상세 사항 ★
 - **저장 중엔 글 작성/삭제를 피해주세요.**
