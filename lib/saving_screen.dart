@@ -319,7 +319,8 @@ class SavingScreenState extends State<SavingScreen>
             int imageIdx = 0;
             for (var nowImage in nowReply.imageUrls)
             {
-              await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
+                await exportImage(nowImage, '$postCnt-$cmtReplyCnt-$imageIdx');
+
               imageIdx++;
             }
           }
@@ -423,10 +424,13 @@ class SavingScreenState extends State<SavingScreen>
     if (response.statusCode == 200) {
       final file = File('$imagePath\\$fileName$extension');
       await file.writeAsBytes(response.bodyBytes);
+
+      return;
     }
-    else {
-      throw Exception('$fileName$extension 로드 실패');
-    }
+
+    // 이미지 로딩 못한 경우의 처리
+    // -> 오래된 일부 사진은 깨짐 (ex, 15년도 이전 포제 글)
+    await exportText('(깨진 사진 $fileName) ');
   }
 
   String getFileExtension(String url) {

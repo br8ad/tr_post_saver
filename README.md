@@ -6,7 +6,7 @@
 
 - **[★ 다운로드 링크 ★](https://drive.google.com/file/d/19C5Pg4-BwwJZhIfStCgmmezXiK6t03Te/view)**
 
-- **[바이러스 검사 결과](https://www.virustotal.com/gui/file/9cc5966de25a17154d95d50f5e12e907ea08e2d56894c7c7ccd6a8717c12afee)**
+- **[바이러스 검사 결과](https://www.virustotal.com/gui/file/1438737544eea1c2a8331809cd94cfe051a3248ff5493fe5a899cd3dd94fbd87)**
 
 ## ★ 상세 사항 ★
 - **저장 중엔 글 작성/삭제를 피해주세요.**
@@ -26,10 +26,14 @@
 <br>설문 내용을 백업하고 싶으시면 (★커뮤니티 종료 전에)
 <br>txt에서 '/ 설문'을 검색하셔서 글 확인 후 직접 캡처하셔야 합니다!
 
-- 런게는 게시판명 표시 X
-<br>→ txt내 런게글 검색을 원하시면
+- 런게는 게시판명이 표기되지 않습니다.
+<br>txt내 런게글 검색을 원하시면
 <br>&nbsp;&nbsp;&nbsp;&nbsp;123뷰 / (창작 /) 240829 이런 형식이니까
 <br>&nbsp;&nbsp;&nbsp;&nbsp;'뷰 / 2~0'으로 검색하시면 됩니다.
+
+- txt내에 '깨진 사진'이라고 표기된 건 불러오지 못 한 겁니다.
+<br>일부 오래된 글의 사진은 날아갔더라구요ㅜ
+<br>(확인된 케이스 = 15년도 1월 이전 포토제닉 글)
 
 - '페이지'는 STOVE 본인 글 목록 기준입니다. (1페 = 24개)
 
