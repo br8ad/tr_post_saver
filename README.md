@@ -11,7 +11,7 @@
 ## ★ 상세 사항 ★
 - **유저코드 알아내는 법 (new)**
 <br>프로그램 내에 적힌 '광장'을 통한 방법은 현재 힘드므로,
-<br>[https://tr.rhaon.co.kr/community/runners/all/2212?page=1](https://tr.rhaon.co.kr/community/runners/all/2212?page=1) 이 링크를 참조하세요!
+<br>[https://tr.rhaon.co.kr/community/runners/all/2212](https://tr.rhaon.co.kr/community/runners/all/2212) 이 링크를 참조하세요!
 
 - (정상)실행되지 않는 경우
 <br>1. (낯선 파일이라) 백신에서 차단하진 않았는지 확인 후 예외 설정
